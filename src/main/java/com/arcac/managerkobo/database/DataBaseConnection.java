@@ -1,4 +1,3 @@
-
 package com.arcac.managerkobo.database;
 
 import java.sql.Connection;
@@ -6,18 +5,16 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 
 /**
- *Clase para abrir y cerrar la conexión
+ * Clase para abrir y cerrar la conexión
  */
-
 public class DataBaseConnection {
 
     // 1. La variable estática para el Singleton y el objeto Connection
     private static DataBaseConnection instance;
     private Connection connection;
 
-    
-    private DataBaseConnection() { }
-
+    private DataBaseConnection() {
+    }
 
     // 1. getInstance(): Devuelve la única instancia de la clase
     public static DataBaseConnection getInstance() {
@@ -30,7 +27,7 @@ public class DataBaseConnection {
     // 2. connect(): Abre la conexión con el archivo SQLite
     public void connect(String databasePath) throws SQLException {
         if (connection != null && !connection.isClosed()) {
-            return; 
+            return;
         }
         // Le indicamos al driver de JDBC que use SQLite
         String url = "jdbc:sqlite:" + databasePath;

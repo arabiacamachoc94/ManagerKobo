@@ -5,7 +5,6 @@
 package com.arcac.managerkobo.model;
 
 /**
- *
  * Clase que representa un libro y sus atributos
  */
 
