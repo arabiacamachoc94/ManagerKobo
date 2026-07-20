@@ -1,21 +1,28 @@
-
 package com.arcac.managerkobo.model;
 
-/**
- * Clase que representa notas y subrayados 
- */
-
+/** Representa un marcador, una nota o un subrayado, junto con su libro. */
 public class Bookmark {
     private String bookmarkId;
-    private String volumeId; // Este es el ID del libro al que pertenece (el contentId del Book)
-    private String text; // El fragmento exacto que el usuario subrayó del libro
-    private String userNote; // La nota escrita por el usuario con el teclado (si la hay)
-    private String dateCreated; // Fecha de creación
+    private String volumeId;
+    private String contentId;
+    private String text;
+    private String userNote;
+    private String dateCreated;
+    private String dateModified;
+    private double chapterProgress;
+    private String type;
+    private int color;
+    private String contextString;
 
-    public Bookmark() {
-    }
+    // Datos obtenidos al relacionar Bookmark con content.
+    private String bookTitle;
+    private String bookAuthor;
+    private String chapterTitle;
 
-    public Bookmark(String bookmarkId, String volumeId, String text, String userNote, String dateCreated) {
+    public Bookmark() { }
+
+    public Bookmark(String bookmarkId, String volumeId, String text,
+                    String userNote, String dateCreated) {
         this.bookmarkId = bookmarkId;
         this.volumeId = volumeId;
         this.text = text;
@@ -23,52 +30,42 @@ public class Bookmark {
         this.dateCreated = dateCreated;
     }
 
-    // --- GETTERS Y SETTERS ---
+    public boolean isHighlight() { return "highlight".equalsIgnoreCase(type); }
+    public boolean hasUserNote() { return userNote != null && !userNote.isBlank(); }
 
-    public String getBookmarkId() {
-        return bookmarkId;
-    }
-
-    public void setBookmarkId(String bookmarkId) {
-        this.bookmarkId = bookmarkId;
-    }
-
-    public String getVolumeId() {
-        return volumeId;
-    }
-
-    public void setVolumeId(String volumeId) {
-        this.volumeId = volumeId;
-    }
-
-    public String getText() {
-        return text;
-    }
-
-    public void setText(String text) {
-        this.text = text;
-    }
-
-    public String getUserNote() {
-        return userNote;
-    }
-
-    public void setUserNote(String userNote) {
-        this.userNote = userNote;
-    }
-
-    public String getDateCreated() {
-        return dateCreated;
-    }
-
-    public void setDateCreated(String dateCreated) {
-        this.dateCreated = dateCreated;
-    }
+    public String getBookmarkId() { return bookmarkId; }
+    public void setBookmarkId(String value) { bookmarkId = value; }
+    public String getVolumeId() { return volumeId; }
+    public void setVolumeId(String value) { volumeId = value; }
+    public String getContentId() { return contentId; }
+    public void setContentId(String value) { contentId = value; }
+    public String getText() { return text; }
+    public void setText(String value) { text = value; }
+    public String getUserNote() { return userNote; }
+    public void setUserNote(String value) { userNote = value; }
+    public String getDateCreated() { return dateCreated; }
+    public void setDateCreated(String value) { dateCreated = value; }
+    public String getDateModified() { return dateModified; }
+    public void setDateModified(String value) { dateModified = value; }
+    public double getChapterProgress() { return chapterProgress; }
+    public void setChapterProgress(double value) { chapterProgress = value; }
+    public String getType() { return type; }
+    public void setType(String value) { type = value; }
+    public int getColor() { return color; }
+    public void setColor(int value) { color = value; }
+    public String getContextString() { return contextString; }
+    public void setContextString(String value) { contextString = value; }
+    public String getBookTitle() { return bookTitle; }
+    public void setBookTitle(String value) { bookTitle = value; }
+    public String getBookAuthor() { return bookAuthor; }
+    public void setBookAuthor(String value) { bookAuthor = value; }
+    public String getChapterTitle() { return chapterTitle; }
+    public void setChapterTitle(String value) { chapterTitle = value; }
 
     @Override
     public String toString() {
-        
-        String preview = text != null && text.length() > 30 ? text.substring(0, 30) + "..." : text;
-        return "Subrayado: [" + preview + "] | Nota: " + (userNote != null ? userNote : "Ninguna");
+        String preview = text != null && text.length() > 50 ? text.substring(0, 50) + "..." : text;
+        return "Subrayado de " + (bookTitle == null ? "libro desconocido" : bookTitle)
+                + ": [" + preview + "]";
     }
 }

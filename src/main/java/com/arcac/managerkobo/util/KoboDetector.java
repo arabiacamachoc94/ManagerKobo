@@ -1,92 +1,106 @@
-
 package com.arcac.managerkobo.util;
 
 import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
+import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 
-/**
- * Clase que se encarga de rastrear las unidades, encontrar la carpeta kobo, y
- * copiar el archivo .sqlite al PC.
- */
-public class KoboDetector {
+/** Detecta el dispositivo Kobo y mantiene una copia local de su SQLite. */
+public final class KoboDetector {
+    private static final Path DATA_DIRECTORY = Path.of("data");
+    private static final Path LOCAL_DATABASE = DATA_DIRECTORY.resolve("KoboReader.sqlite");
+
+    private KoboDetector() { }
+
+    /** Método conservado para compatibilidad con código anterior. */
+    public static String detectAndCopyDatabase() {
+        return synchronize().databasePath();
+    }
 
     /**
-     * Detecta el kobo en el pc y extrae el sqlite.
+     * Detecta el Kobo, copia su base si ha cambiado y diferencia claramente
+     * entre dispositivo conectado y copia local disponible.
      */
-    public static String detectAndCopyDatabase() {
-        // Carpeta local donde guardaremos los datos 
-        File appDataDir = new File("data");
-        if (!appDataDir.exists()) {
-            appDataDir.mkdir(); 
-        }
-        File localDbFile = new File(appDataDir, "KoboReader.sqlite");
+    public static KoboSyncResult synchronize() {
+        Path deviceDatabase = null;
+        try {
+            Files.createDirectories(DATA_DIRECTORY);
+            deviceDatabase = findDeviceDatabase();
 
-        File[] roots = File.listRoots();
-        boolean koboFound = false;
-
-        for (File root : roots) {
-            File koboFolder = new File(root, ".kobo");
-            File sqliteFile = new File(koboFolder, "KoboReader.sqlite");
-
-            if (koboFolder.exists() && koboFolder.isDirectory() && sqliteFile.exists()) {
-                koboFound = true;
-                System.out.println("¡Kobo detectado en la unidad: " + root.getAbsolutePath() + "!");
-
-                try {
-                    // Si ya existe una base de datos local de una conexión anterior
-                    if (localDbFile.exists()) {
-
-                        // Comparamos tamaño o fecha para ver si el usuario ha leído o subrayado algo nuevo
-                        if (sqliteFile.lastModified() != localDbFile.lastModified() || sqliteFile.length() != localDbFile.length()) {
-
-                            // ** En el futuro pondremos un JOptionPane pidiendo confirmación al usuario **
-                            System.out.println("Se han detectado cambios en el Kobo.");
-
-                            // 1. Hagcemos un backup 
-                            String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
-                            File backupFile = new File(appDataDir, "KoboReader_backup_" + timestamp + ".sqlite");
-                            localDbFile.renameTo(backupFile);
-                            System.out.println("Guardada copia de seguridad antigua en: " + backupFile.getName());
-
-                            // 2. Copiamos la nueva
-                            Files.copy(sqliteFile.toPath(), localDbFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                            localDbFile.setLastModified(sqliteFile.lastModified()); // Sincronizar fechas
-
-                        } else {
-                            System.out.println("La base de datos local ya está totalmente sincronizada con el Kobo.");
-                        }
-                    } else {
-                        // Es la primera vez que se ejecuta el programa
-                        Files.copy(sqliteFile.toPath(), localDbFile.toPath(), StandardCopyOption.REPLACE_EXISTING);
-                        localDbFile.setLastModified(sqliteFile.lastModified());
-                        System.out.println("Base de datos importada por primera vez.");
-                    }
-
-                    return localDbFile.getAbsolutePath();
-
-                } catch (IOException e) {
-                    System.err.println("Error al copiar la base de datos: " + e.getMessage());
-                    return null;
+            if (deviceDatabase == null) {
+                if (Files.isRegularFile(LOCAL_DATABASE)) {
+                    return new KoboSyncResult(false, true, false,
+                            LOCAL_DATABASE.toAbsolutePath().toString(),
+                            "No se detectó un Kobo; se están usando los datos locales.");
                 }
+                return new KoboSyncResult(false, false, false, null,
+                        "No se detectó un Kobo ni existe una base de datos local.");
+            }
+
+            boolean updated = copyWhenChanged(deviceDatabase);
+            String message = updated
+                    ? "La base de datos del Kobo se ha sincronizado correctamente."
+                    : "La base de datos local ya estaba actualizada.";
+            return new KoboSyncResult(true, true, updated,
+                    LOCAL_DATABASE.toAbsolutePath().toString(), message);
+        } catch (IOException exception) {
+            boolean localAvailable = Files.isRegularFile(LOCAL_DATABASE);
+            return new KoboSyncResult(deviceDatabase != null, localAvailable, false,
+                    localAvailable ? LOCAL_DATABASE.toAbsolutePath().toString() : null,
+                    "No se pudo sincronizar el Kobo: " + exception.getMessage());
+        }
+    }
+
+    /** Solo comprueba la presencia física; no copia ni modifica archivos. */
+    public static boolean isKoboConnected() {
+        return findDeviceDatabase() != null;
+    }
+
+    private static Path findDeviceDatabase() {
+        File[] roots = File.listRoots();
+        if (roots == null) return null;
+
+        Path localAbsolute = LOCAL_DATABASE.toAbsolutePath().normalize();
+        for (File root : roots) {
+            Path candidate = root.toPath().resolve(".kobo").resolve("KoboReader.sqlite");
+            // Evita interpretar por accidente la propia copia local como dispositivo.
+            if (!candidate.toAbsolutePath().normalize().equals(localAbsolute)
+                    && Files.isRegularFile(candidate)) {
+                return candidate;
             }
         }
-
-        // Si no hemos encontrado el Kobo enchufado, comprobamos si tenemos datos locales 
-        if (!koboFound) {
-            System.out.println("No se ha detectado el Kobo por USB...");
-            if (localDbFile.exists()) {
-                System.out.println("...usamos los datos guardados en la carpeta local.");
-                return localDbFile.getAbsolutePath();
-            } else {
-                System.out.println("...no hay datos locales. Conecta el Kobo para empezar.");
-                return null;
-            }
-        }
-
         return null;
+    }
+
+    private static boolean copyWhenChanged(Path deviceDatabase) throws IOException {
+        if (!Files.isRegularFile(LOCAL_DATABASE)) {
+            copyDatabase(deviceDatabase);
+            return true;
+        }
+
+        boolean sameSize = Files.size(deviceDatabase) == Files.size(LOCAL_DATABASE);
+        boolean sameModifiedTime = Files.getLastModifiedTime(deviceDatabase)
+                .equals(Files.getLastModifiedTime(LOCAL_DATABASE));
+        if (sameSize && sameModifiedTime) return false;
+
+        String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        Path backup = DATA_DIRECTORY.resolve("KoboReader_backup_" + timestamp + ".sqlite");
+        Files.move(LOCAL_DATABASE, backup, StandardCopyOption.REPLACE_EXISTING);
+        try {
+            copyDatabase(deviceDatabase);
+        } catch (IOException exception) {
+            Files.move(backup, LOCAL_DATABASE, StandardCopyOption.REPLACE_EXISTING);
+            throw exception;
+        }
+        return true;
+    }
+
+    private static void copyDatabase(Path source) throws IOException {
+        Files.copy(source, LOCAL_DATABASE, StandardCopyOption.REPLACE_EXISTING,
+                StandardCopyOption.COPY_ATTRIBUTES);
+        Files.setLastModifiedTime(LOCAL_DATABASE, Files.getLastModifiedTime(source));
     }
 }

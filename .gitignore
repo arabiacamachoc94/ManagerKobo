@@ -1,24 +1,24 @@
-# Maven
+
 target/
 
-# NetBeans
+
 nbproject/private/
 
-# Logs
+
 *.log
 
-# Compiled files
+
 *.class
 
-# OS files
+
 .DS_Store
 Thumbs.db
 
-# Archivos de base de datos local
+
 data/
 *.sqlite
 
-# Carpetas generadas por el IDE y Maven (por si acaso no las tenías)
+
 target/
 .idea/
 *.class

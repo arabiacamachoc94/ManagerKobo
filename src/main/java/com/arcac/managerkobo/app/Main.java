@@ -3,38 +3,49 @@ package com.arcac.managerkobo.app;
 import com.arcac.managerkobo.database.DataBaseConnection;
 import com.arcac.managerkobo.database.KoboDAO;
 import com.arcac.managerkobo.model.Book;
+import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.service.LibraryStatisticsService;
+import com.arcac.managerkobo.service.ReadingStatistics;
 import com.arcac.managerkobo.util.KoboDetector;
-import java.sql.SQLException;
+import com.arcac.managerkobo.util.KoboSyncResult;
 import java.util.List;
+import com.formdev.flatlaf.FlatDarkLaf;
+import com.arcac.managerkobo.ui.MainFrame;
+import java.util.ArrayList;
+import javax.swing.SwingUtilities;
 
 public class Main {
 
     public static void main(String[] args) {
-        // 1. Busca y copia (nos devuelve un String con la ruta, ej: "data/KoboReader.sqlite")
-        String rutaSegura = KoboDetector.detectAndCopyDatabase();
+        FlatDarkLaf.setup();
+        KoboSyncResult syncResult = KoboDetector.synchronize();
+        String rutaSegura = syncResult.databasePath();
 
-        // 2. Comprobamos si la encontró
-        if (rutaSegura != null) {
+        List<Book> misLibros = new ArrayList<>();
+        List<Bookmark> misSubrayados = new ArrayList<>();
+        boolean baseDisponible = syncResult.databaseAvailable();
+        if (baseDisponible) {
             try {
-                // 3. Le pasamos esa ruta a la conexión 
+                
                 DataBaseConnection db = DataBaseConnection.getInstance();
                 db.connect(rutaSegura);
 
                 System.out.println("¡Estamos dentro y listos para extraer libros!");
 
                 KoboDAO dao = new KoboDAO();
-                List<Book> misLibros = dao.getAllBooks();
-
-                System.out.println("\n--- MI BIBLIOTECA KOBO ---");
-                for (Book libro : misLibros) {
-                    System.out.println(libro.toString());
-                }
-
-                db.disconnect();
+                misLibros = dao.getAllBooks();
+                misSubrayados = dao.getAllHighlightsWithBook();
 
             } catch (Exception e) {
                 e.printStackTrace();
             }
         }
+
+        List<Book> librosParaLaVista = misLibros;
+        ReadingStatistics estadisticas = new LibraryStatisticsService()
+                .calculate(misLibros, misSubrayados);
+        SwingUtilities.invokeLater(() ->
+                new MainFrame(librosParaLaVista, estadisticas,
+                        syncResult.koboConnected()).setVisible(true));
     }
 }
