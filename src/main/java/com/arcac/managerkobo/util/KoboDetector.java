@@ -15,11 +15,6 @@ public final class KoboDetector {
 
     private KoboDetector() { }
 
-    /** Método conservado para compatibilidad con código anterior. */
-    public static String detectAndCopyDatabase() {
-        return synchronize().databasePath();
-    }
-
     /**
      * Detecta el Kobo, copia su base si ha cambiado y diferencia claramente
      * entre dispositivo conectado y copia local disponible.
@@ -52,11 +47,6 @@ public final class KoboDetector {
                     localAvailable ? LOCAL_DATABASE.toAbsolutePath().toString() : null,
                     "No se pudo sincronizar el Kobo: " + exception.getMessage());
         }
-    }
-
-    /** Solo comprueba la presencia física; no copia ni modifica archivos. */
-    public static boolean isKoboConnected() {
-        return findDeviceDatabase() != null;
     }
 
     private static Path findDeviceDatabase() {

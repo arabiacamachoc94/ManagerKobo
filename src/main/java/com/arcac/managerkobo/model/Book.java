@@ -32,16 +32,6 @@ public class Book {
 
     public Book() { }
 
-    /** Constructor conservado para mantener compatibilidad con el código inicial. */
-    public Book(String contentId, String title, String author, int readStatus,
-                int percentRead, int minutesRead) {
-        this.contentId = contentId;
-        this.title = title;
-        this.author = author;
-        this.readStatus = readStatus;
-        this.percentRead = percentRead;
-        setMinutesRead(minutesRead);
-    }
 
     public boolean isFinished() {
         return readStatus == 2 || percentRead >= 100;

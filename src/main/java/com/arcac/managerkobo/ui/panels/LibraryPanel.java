@@ -32,7 +32,6 @@ import javax.swing.table.TableRowSorter;
 import javax.swing.JProgressBar;
 import javax.swing.SwingUtilities;
 import java.awt.Component;
-import java.awt.Color;
 import java.text.Collator;
 import java.util.Comparator;
 import java.util.Locale;
@@ -41,14 +40,6 @@ import java.util.Locale;
 public class LibraryPanel extends JPanel {
     private final BookTableModel tableModel;
     private final Consumer<Book> openBookAction;
-
-    public LibraryPanel(List<Book> books) {
-        this(books, List.of(), book -> { });
-    }
-
-    public LibraryPanel(List<Book> books, Consumer<Book> openBookAction) {
-        this(books, List.of(), openBookAction);
-    }
 
     public LibraryPanel(List<Book> books, List<Bookmark> highlights,
                         Consumer<Book> openBookAction) {

@@ -39,17 +39,6 @@ public class MainFrame extends JFrame {
     private String currentPage = SidebarPanel.DASHBOARD;
     private static final String BOOK_DETAIL = "book-detail";
 
-    public MainFrame() {
-        this(List.of(), false);
-    }
-
-    public MainFrame(List<Book> books, boolean koboConnected) {
-        this(books, new LibraryStatisticsService().calculate(books), koboConnected);
-    }
-
-    public MainFrame(List<Book> books, ReadingStatistics statistics, boolean koboConnected) {
-        this(books, List.of(), statistics, koboConnected);
-    }
 
     public MainFrame(List<Book> books, List<Bookmark> highlights,
             ReadingStatistics statistics, boolean koboConnected) {

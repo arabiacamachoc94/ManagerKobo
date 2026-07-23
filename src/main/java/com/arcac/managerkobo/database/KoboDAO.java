@@ -39,9 +39,6 @@ public class KoboDAO {
         return books;
     }
 
-    public List<Bookmark> getAllBookmarks() {
-        return getAllHighlightsWithBook();
-    }
 
     /** Obtiene los subrayados con título, autor y capítulo asociados. */
     public List<Bookmark> getAllHighlightsWithBook() {

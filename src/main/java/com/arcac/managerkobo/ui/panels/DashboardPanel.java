@@ -31,13 +31,6 @@ public class DashboardPanel extends JPanel {
     private final Runnable syncAction;
     private final JButton syncButton = new JButton("Sincronizar Kobo");
 
-    public DashboardPanel(List<Book> books) {
-        this(books, new LibraryStatisticsService().calculate(books), () -> { });
-    }
-
-    public DashboardPanel(List<Book> books, ReadingStatistics statistics) {
-        this(books, statistics, () -> { });
-    }
 
     public DashboardPanel(List<Book> books, ReadingStatistics statistics, Runnable syncAction) {
         this.books = books;
