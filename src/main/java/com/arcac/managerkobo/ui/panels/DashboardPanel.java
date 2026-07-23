@@ -5,11 +5,14 @@ import com.arcac.managerkobo.service.LibraryStatisticsService;
 import com.arcac.managerkobo.service.ReadingStatistics;
 import com.arcac.managerkobo.ui.components.RoundedPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
+import com.arcac.managerkobo.ui.util.IconLoader;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.awt.event.ComponentAdapter;
+import java.awt.event.ComponentEvent;
 import java.util.List;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -17,6 +20,8 @@ import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JButton;
+import javax.swing.JScrollPane;
+import javax.swing.ScrollPaneConstants;
 import javax.swing.border.EmptyBorder;
 
 /** Pantalla de resumen principal: estadísticas, lectura actual y libros en progreso. */
@@ -72,36 +77,61 @@ public class DashboardPanel extends JPanel {
     private JPanel createContent() {
         JPanel body = transparentVertical();
         body.setBorder(new EmptyBorder(5, 32, 30, 32));
-        JPanel metrics = new JPanel(new GridLayout(1, 4, 14, 0));
-        metrics.setOpaque(false);
-        metrics.setMaximumSize(new Dimension(Integer.MAX_VALUE, 105));
-        metrics.add(metric("▤", "Total libros", String.valueOf(statistics.totalBooks()), AppTheme.BLUE));
+        JPanel metrics = responsiveGrid(4, 165, 105, 14);
+        metrics.add(metric("/icons/libro.png", "Total libros", String.valueOf(statistics.totalBooks()), AppTheme.BLUE));
         metrics.add(metric("✓", "Terminados", String.valueOf(statistics.finishedBooks()), AppTheme.GREEN));
-        metrics.add(metric("◷", "Horas leídas", formatHours(statistics.totalHoursRead()), AppTheme.PURPLE));
-        metrics.add(metric("✎", "Subrayados", String.valueOf(statistics.totalHighlights()), AppTheme.ORANGE));
+        metrics.add(metric("/icons/tiempo.png", "Horas leídas", formatHours(statistics.totalHoursRead()), AppTheme.PURPLE));
+        metrics.add(metric("/icons/lapiz.png", "Subrayados", String.valueOf(statistics.totalHighlights()), AppTheme.ORANGE));
         body.add(metrics);
-        body.add(Box.createVerticalStrut(28));
+        body.add(Box.createVerticalStrut(22));
+
+        body.add(label("Más estadísticas", 18, Font.BOLD, AppTheme.TEXT));
+        body.add(Box.createVerticalStrut(12));
+        JPanel extraMetrics = responsiveGrid(4, 145, 82, 14);
+        extraMetrics.add(compactMetric("En progreso", String.valueOf(statistics.readingBooks()), AppTheme.PURPLE));
+        extraMetrics.add(compactMetric("Por leer", String.valueOf(statistics.unreadBooks()), AppTheme.BLUE));
+        extraMetrics.add(compactMetric("Finalización", formatPercent(statistics.completionRate()), AppTheme.GREEN));
+        extraMetrics.add(compactMetric("Progreso medio", formatPercent(statistics.averageProgress()), AppTheme.ORANGE));
+        body.add(extraMetrics);
+        body.add(Box.createVerticalStrut(24));
+
         body.add(label("Lectura actual", 18, Font.BOLD, AppTheme.TEXT));
         body.add(Box.createVerticalStrut(12));
         Book current = books.stream().filter(b -> b.getPercentRead() > 0 && b.getPercentRead() < 100).findFirst().orElse(null);
         body.add(bookCard(current));
         body.add(Box.createVerticalStrut(24));
 
-        JPanel secondary = new JPanel(new GridLayout(1, 2, 14, 0));
-        secondary.setOpaque(false);
-        secondary.setMaximumSize(new Dimension(Integer.MAX_VALUE, 115));
-        secondary.add(summaryCard("Último libro leído", statistics.lastReadBook(), AppTheme.BLUE));
-        secondary.add(summaryCard("Libro con más tiempo", statistics.mostReadBook(), AppTheme.ORANGE));
+        body.add(label("Resumen de libros", 18, Font.BOLD, AppTheme.TEXT));
+        body.add(Box.createVerticalStrut(12));
+        JPanel secondary = responsiveGrid(3, 215, 115, 14);
+        secondary.add(summaryCard("Último libro leído", statistics.lastReadBook(),
+                statistics.lastReadBook() == null ? "" : formatDate(statistics.lastReadBook().getDateLastRead()), AppTheme.BLUE));
+        secondary.add(summaryCard("Libro con más tiempo", statistics.mostReadBook(),
+                statistics.mostReadBook() == null ? "" : formatHours(statistics.mostReadBook().getHoursRead()), AppTheme.ORANGE));
+        secondary.add(summaryCard("Libro más subrayado", statistics.mostHighlightedBook(),
+                statistics.mostHighlightedCount() + " subrayados", AppTheme.GREEN));
         body.add(secondary);
-        body.add(Box.createVerticalGlue());
-        return body;
+        body.add(Box.createVerticalStrut(12));
+
+        JScrollPane scroll = new JScrollPane(body);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
+        JPanel wrapper = new JPanel(new BorderLayout());
+        wrapper.setOpaque(false);
+        wrapper.add(scroll, BorderLayout.CENTER);
+        return wrapper;
     }
 
-    private JPanel summaryCard(String heading, Book book, Color accent) {
+    private JPanel summaryCard(String heading, Book book, String valueDetail, Color accent) {
         RoundedPanel card = new RoundedPanel(18, AppTheme.PANEL);
         card.setLayout(new BorderLayout(14, 0));
         card.setBorder(new EmptyBorder(17, 19, 17, 19));
-        card.add(label("▥", 30, Font.PLAIN, accent), BorderLayout.WEST);
+        JLabel bookIcon = label("", 30, Font.PLAIN, accent);
+        bookIcon.setIcon(IconLoader.loadTinted("/icons/libro.png", 30, accent));
+        card.add(bookIcon, BorderLayout.WEST);
         JPanel text = transparentVertical();
         text.add(label(heading, 12, Font.BOLD, AppTheme.MUTED_TEXT));
         text.add(Box.createVerticalStrut(5));
@@ -109,8 +139,20 @@ public class DashboardPanel extends JPanel {
                 15, Font.BOLD, AppTheme.TEXT));
         text.add(Box.createVerticalStrut(3));
         String detail = book == null ? "" : fallback(book.getAuthor(), "Autor desconocido")
-                + " · " + formatHours(book.getHoursRead());
+                + (valueDetail == null || valueDetail.isBlank() ? "" : " · " + valueDetail);
         text.add(label(detail, 12, Font.PLAIN, AppTheme.MUTED_TEXT));
+        card.add(text, BorderLayout.CENTER);
+        return card;
+    }
+
+    private JPanel compactMetric(String title, String value, Color accent) {
+        RoundedPanel card = new RoundedPanel(16, AppTheme.PANEL);
+        card.setLayout(new BorderLayout());
+        card.setBorder(new EmptyBorder(13, 17, 13, 17));
+        JPanel text = transparentVertical();
+        text.add(label(value, 20, Font.BOLD, accent));
+        text.add(Box.createVerticalStrut(3));
+        text.add(label(title, 12, Font.PLAIN, AppTheme.MUTED_TEXT));
         card.add(text, BorderLayout.CENTER);
         return card;
     }
@@ -119,7 +161,13 @@ public class DashboardPanel extends JPanel {
         RoundedPanel card = new RoundedPanel(18, AppTheme.PANEL);
         card.setLayout(new BorderLayout(14, 0));
         card.setBorder(new EmptyBorder(18, 18, 18, 18));
-        card.add(label(icon, 28, Font.BOLD, accent), BorderLayout.WEST);
+        JLabel iconLabel = label("", 28, Font.BOLD, accent);
+        if (icon.startsWith("/")) {
+            iconLabel.setIcon(IconLoader.loadTinted(icon, 28, accent));
+        } else {
+            iconLabel.setText(icon);
+        }
+        card.add(iconLabel, BorderLayout.WEST);
         JPanel text = transparentVertical();
         text.add(label(title, 12, Font.PLAIN, AppTheme.MUTED_TEXT));
         text.add(label(value, 25, Font.BOLD, AppTheme.TEXT));
@@ -132,7 +180,9 @@ public class DashboardPanel extends JPanel {
         card.setLayout(new BorderLayout(18, 8));
         card.setBorder(new EmptyBorder(20, 22, 20, 22));
         card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 125));
-        card.add(label("▥", 42, Font.PLAIN, AppTheme.PURPLE), BorderLayout.WEST);
+        JLabel bookIcon = label("", 42, Font.PLAIN, AppTheme.PURPLE);
+        bookIcon.setIcon(IconLoader.loadTinted("/icons/libro.png", 42, AppTheme.PURPLE));
+        card.add(bookIcon, BorderLayout.WEST);
         JPanel text = transparentVertical();
         text.add(label(book == null ? "No hay libros en progreso" : fallback(book.getTitle(), "Sin título"), 17, Font.BOLD, AppTheme.TEXT));
         text.add(Box.createVerticalStrut(6));
@@ -156,6 +206,46 @@ public class DashboardPanel extends JPanel {
         return panel;
     }
 
+    /**
+     * Grid que reduce el número de columnas cuando no existe ancho suficiente.
+     * La altura se recalcula para que BoxLayout y el scroll respeten las filas nuevas.
+     */
+    private JPanel responsiveGrid(int maxColumns, int minimumCardWidth,
+                                  int rowHeight, int gap) {
+        JPanel panel = new JPanel(new GridLayout(0, maxColumns, gap, gap));
+        panel.setOpaque(false);
+        panel.putClientProperty("responsiveColumns", maxColumns);
+        panel.setPreferredSize(new Dimension(maxColumns * minimumCardWidth, rowHeight));
+        panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, rowHeight));
+        panel.addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent event) {
+                updateResponsiveGrid(panel, maxColumns, minimumCardWidth, rowHeight, gap);
+            }
+        });
+        return panel;
+    }
+
+    private void updateResponsiveGrid(JPanel panel, int maxColumns,
+                                      int minimumCardWidth, int rowHeight, int gap) {
+        int availableWidth = Math.max(minimumCardWidth, panel.getWidth());
+        int columns = Math.max(1, Math.min(maxColumns,
+                (availableWidth + gap) / (minimumCardWidth + gap)));
+        int previousColumns = (int) panel.getClientProperty("responsiveColumns");
+        int rows = Math.max(1, (int) Math.ceil(panel.getComponentCount() / (double) columns));
+        int requiredHeight = rows * rowHeight + (rows - 1) * gap;
+
+        if (columns != previousColumns || panel.getPreferredSize().height != requiredHeight) {
+            GridLayout layout = (GridLayout) panel.getLayout();
+            layout.setColumns(columns);
+            panel.putClientProperty("responsiveColumns", columns);
+            panel.setPreferredSize(new Dimension(availableWidth, requiredHeight));
+            panel.setMaximumSize(new Dimension(Integer.MAX_VALUE, requiredHeight));
+            panel.revalidate();
+            if (panel.getParent() != null) panel.getParent().revalidate();
+        }
+    }
+
     private JLabel label(String text, int size, int style, Color color) {
         JLabel label = new JLabel(text);
         label.setFont(AppTheme.font(style, size));
@@ -175,5 +265,14 @@ public class DashboardPanel extends JPanel {
             minutes = 0;
         }
         return wholeHours + " h " + minutes + " min";
+    }
+
+    private String formatPercent(double value) {
+        return Math.round(value) + "%";
+    }
+
+    private String formatDate(String value) {
+        if (value == null || value.isBlank()) return "Sin fecha";
+        return value.length() >= 10 ? value.substring(0, 10) : value;
     }
 }

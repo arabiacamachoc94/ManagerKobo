@@ -16,7 +16,7 @@ public class DataBaseConnection {
     private DataBaseConnection() {
     }
 
-    // 1. getInstance(): Devuelve la única instancia de la clase
+    // Patron Singleton: devuelve la única instancia de la clase
     public static DataBaseConnection getInstance() {
         if (instance == null) {
             instance = new DataBaseConnection();
@@ -24,7 +24,7 @@ public class DataBaseConnection {
         return instance;
     }
 
-    // 2. connect(): Abre la conexión con el archivo SQLite
+
     public void connect(String databasePath) throws SQLException {
         if (connection != null && !connection.isClosed()) {
             return;
@@ -35,7 +35,7 @@ public class DataBaseConnection {
         System.out.println("Conexión a la base de datos abierta.");
     }
 
-    // 3. disconnect(): Cierra la conexión de forma segura
+
     public void disconnect() {
         try {
             if (connection != null && !connection.isClosed()) {
@@ -47,7 +47,7 @@ public class DataBaseConnection {
         }
     }
 
-    // 4. getConnection(): Necesario para que otras clases puedan hacer los SELECT
+
     public Connection getConnection() {
         return connection;
     }

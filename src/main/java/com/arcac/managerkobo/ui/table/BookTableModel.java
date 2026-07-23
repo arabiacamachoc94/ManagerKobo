@@ -1,19 +1,34 @@
 package com.arcac.managerkobo.ui.table;
 
 import com.arcac.managerkobo.model.Book;
+import com.arcac.managerkobo.model.Bookmark;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import javax.swing.table.AbstractTableModel;
 
 /** Adapta una lista de Book al formato de filas y columnas de JTable. */
 public class BookTableModel extends AbstractTableModel {
     private final List<Book> allBooks;
     private List<Book> visibleBooks;
-    private final String[] columns = {"Título", "Autor", "Progreso", "Estado", "Tiempo"};
+    private final Map<String, Integer> highlightCounts = new HashMap<>();
+    private final String[] columns = {"Título", "Autor", "Progreso", "Estado", "Tiempo", "Subrayados"};
 
     public BookTableModel(List<Book> books) {
+        this(books, List.of());
+    }
+
+    public BookTableModel(List<Book> books, List<Bookmark> highlights) {
         allBooks = new ArrayList<>(books);
         visibleBooks = new ArrayList<>(books);
+        if (highlights != null) {
+            for (Bookmark highlight : highlights) {
+                if (highlight.getVolumeId() != null) {
+                    highlightCounts.merge(highlight.getVolumeId(), 1, Integer::sum);
+                }
+            }
+        }
     }
 
     public void filter(String text) {
@@ -30,14 +45,24 @@ public class BookTableModel extends AbstractTableModel {
     @Override public String getColumnName(int column) { return columns[column]; }
 
     @Override
+    public Class<?> getColumnClass(int column) {
+        return column == 2 || column == 4 || column == 5 ? Integer.class : String.class;
+    }
+
+    public Book getBookAt(int row) {
+        return row >= 0 && row < visibleBooks.size() ? visibleBooks.get(row) : null;
+    }
+
+    @Override
     public Object getValueAt(int row, int column) {
         Book book = visibleBooks.get(row);
         return switch (column) {
             case 0 -> fallback(book.getTitle(), "Sin título");
             case 1 -> fallback(book.getAuthor(), "Autor desconocido");
-            case 2 -> book.getPercentRead() + "%";
+            case 2 -> book.getPercentRead();
             case 3 -> statusOf(book);
-            case 4 -> String.format("%dh %02dmin", book.getMinutesRead() / 60, book.getMinutesRead() % 60);
+            case 4 -> book.getSecondsRead();
+            case 5 -> highlightCounts.getOrDefault(book.getContentId(), 0);
             default -> "";
         };
     }

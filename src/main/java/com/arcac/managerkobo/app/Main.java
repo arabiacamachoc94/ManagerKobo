@@ -26,11 +26,9 @@ public class Main {
         boolean baseDisponible = syncResult.databaseAvailable();
         if (baseDisponible) {
             try {
-                
+
                 DataBaseConnection db = DataBaseConnection.getInstance();
                 db.connect(rutaSegura);
-
-                System.out.println("¡Estamos dentro y listos para extraer libros!");
 
                 KoboDAO dao = new KoboDAO();
                 misLibros = dao.getAllBooks();
@@ -44,8 +42,9 @@ public class Main {
         List<Book> librosParaLaVista = misLibros;
         ReadingStatistics estadisticas = new LibraryStatisticsService()
                 .calculate(misLibros, misSubrayados);
-        SwingUtilities.invokeLater(() ->
-                new MainFrame(librosParaLaVista, estadisticas,
+        List<Bookmark> subrayadosParaLaVista = misSubrayados;
+        SwingUtilities.invokeLater(()
+                -> new MainFrame(librosParaLaVista, subrayadosParaLaVista, estadisticas,
                         syncResult.koboConnected()).setVisible(true));
     }
 }

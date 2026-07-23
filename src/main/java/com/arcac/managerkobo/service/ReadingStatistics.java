@@ -14,6 +14,7 @@ public record ReadingStatistics(
         double averageProgress,
         Book mostReadBook,
         Book mostHighlightedBook,
+        int mostHighlightedCount,
         Book lastReadBook
 ) {
     public long totalMinutesRead() { return totalSecondsRead / 60; }

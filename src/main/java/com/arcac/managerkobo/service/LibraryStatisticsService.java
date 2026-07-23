@@ -7,7 +7,9 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Calcula estadísticas sin depender de Swing ni de SQLite. */
+/**
+ * Calcula estadísticas sin depender de Swing ni de SQLite.
+ */
 public class LibraryStatisticsService {
 
     public ReadingStatistics calculate(List<Book> books, List<Bookmark> highlights) {
@@ -26,11 +28,14 @@ public class LibraryStatisticsService {
                 .filter(book -> book.getDateLastRead() != null)
                 .max(Comparator.comparing(Book::getDateLastRead)).orElse(null);
         Book mostHighlighted = findMostHighlightedBook(safeBooks, safeHighlights);
+        int mostHighlightedCount = mostHighlighted == null ? 0 : (int) safeHighlights.stream()
+                .filter(mark -> mostHighlighted.getContentId().equals(mark.getVolumeId()))
+                .count();
         int notes = (int) safeHighlights.stream().filter(Bookmark::hasUserNote).count();
 
         return new ReadingStatistics(safeBooks.size(), finished, reading, unread,
                 seconds, safeHighlights.size(), notes, averageProgress,
-                mostRead, mostHighlighted, lastRead);
+                mostRead, mostHighlighted, mostHighlightedCount, lastRead);
     }
 
     public ReadingStatistics calculate(List<Book> books) {
@@ -40,7 +45,9 @@ public class LibraryStatisticsService {
     private Book findMostHighlightedBook(List<Book> books, List<Bookmark> highlights) {
         Map<String, Integer> counts = new HashMap<>();
         for (Bookmark highlight : highlights) {
-            if (highlight.getVolumeId() != null) counts.merge(highlight.getVolumeId(), 1, Integer::sum);
+            if (highlight.getVolumeId() != null) {
+                counts.merge(highlight.getVolumeId(), 1, Integer::sum);
+            }
         }
         return books.stream()
                 .filter(book -> book.getContentId() != null)
