@@ -1,50 +1,46 @@
 package com.arcac.managerkobo.app;
 
-import com.arcac.managerkobo.database.DataBaseConnection;
-import com.arcac.managerkobo.database.KoboDAO;
-import com.arcac.managerkobo.model.Book;
-import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.service.KoboLibraryData;
+import com.arcac.managerkobo.service.KoboLibraryService;
 import com.arcac.managerkobo.service.LibraryStatisticsService;
-import com.arcac.managerkobo.service.ReadingStatistics;
-import com.arcac.managerkobo.util.KoboDetector;
 import com.arcac.managerkobo.util.KoboSyncResult;
-import java.util.List;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.arcac.managerkobo.ui.MainFrame;
-import java.util.ArrayList;
+import java.util.List;
 import javax.swing.SwingUtilities;
 
 public class Main {
 
     public static void main(String[] args) {
         FlatDarkLaf.setup();
-        KoboSyncResult syncResult = KoboDetector.synchronize();
-        String rutaSegura = syncResult.databasePath();
-
-        List<Book> misLibros = new ArrayList<>();
-        List<Bookmark> misSubrayados = new ArrayList<>();
-        boolean baseDisponible = syncResult.databaseAvailable();
-        if (baseDisponible) {
-            try {
-
-                DataBaseConnection db = DataBaseConnection.getInstance();
-                db.connect(rutaSegura);
-
-                KoboDAO dao = new KoboDAO();
-                misLibros = dao.getAllBooks();
-                misSubrayados = dao.getAllHighlightsWithBook();
-
-            } catch (Exception e) {
-                e.printStackTrace();
-            }
+        KoboLibraryService libraryService = new KoboLibraryService();
+        KoboLibraryData libraryData;
+        try {
+            libraryData = libraryService.synchronizeAndLoad();
+        } catch (Exception exception) {
+            exception.printStackTrace();
+            KoboSyncResult failedResult = new KoboSyncResult(
+                    false, false, false, null,
+                    "No se pudo cargar la biblioteca: " + rootMessage(exception));
+            libraryData = new KoboLibraryData(
+                    failedResult,
+                    List.of(),
+                    List.of(),
+                    new LibraryStatisticsService().calculate(List.of(), List.of()));
         }
 
-        List<Book> librosParaLaVista = misLibros;
-        ReadingStatistics estadisticas = new LibraryStatisticsService()
-                .calculate(misLibros, misSubrayados);
-        List<Bookmark> subrayadosParaLaVista = misSubrayados;
+        KoboLibraryData initialData = libraryData;
         SwingUtilities.invokeLater(()
-                -> new MainFrame(librosParaLaVista, subrayadosParaLaVista, estadisticas,
-                        syncResult.koboConnected()).setVisible(true));
+                -> new MainFrame(libraryService, initialData).setVisible(true));
+    }
+
+    private static String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) {
+            current = current.getCause();
+        }
+        return current.getMessage() == null
+                ? current.getClass().getSimpleName()
+                : current.getMessage();
     }
 }

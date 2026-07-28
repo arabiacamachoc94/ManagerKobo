@@ -1,70 +1,95 @@
 package com.arcac.managerkobo.ui.components;
 
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.service.HighlightExportService;
+import com.arcac.managerkobo.service.HighlightExportService.ExportFormat;
+import com.arcac.managerkobo.ui.components.HighlightListItem.BookGroup;
+import com.arcac.managerkobo.ui.components.HighlightListItem.Highlight;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import java.awt.BorderLayout;
-import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
+import java.awt.GridLayout;
 import java.awt.Point;
-import java.awt.Component;
 import java.awt.Rectangle;
+import java.awt.Color;
+import java.awt.Toolkit;
+import java.awt.datatransfer.StringSelection;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
+import java.awt.event.MouseAdapter;
+import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Locale;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Path;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.JComboBox;
+import javax.swing.DefaultListModel;
+import javax.swing.JButton;
+import javax.swing.JFileChooser;
 import javax.swing.JLabel;
+import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.JScrollPane;
-import javax.swing.JTextArea;
 import javax.swing.JTextField;
+import javax.swing.JOptionPane;
+import javax.swing.JPopupMenu;
+import javax.swing.JMenuItem;
+import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.Scrollable;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
-/** Listado reutilizable de subrayados con búsqueda y filtro opcional por libro. */
+/** Lista plana o agrupada por libro, con búsqueda y grupos desplegables. */
 public class HighlightListPanel extends JPanel {
-    private static final String ALL_BOOKS = "Todos los libros";
+
     private final List<Bookmark> allHighlights;
-    private final ScrollableCardsPanel cards = new ScrollableCardsPanel();
+    private final boolean groupByBook;
+    private final Set<String> expandedGroupIds = new HashSet<>();
+    private final Set<String> selectedHighlightIds = new HashSet<>();
+    private final DefaultListModel<HighlightListItem> listModel =
+            new DefaultListModel<>();
+    private final JList<HighlightListItem> highlightList =
+            new ViewportWidthList<>(listModel);
     private final JLabel resultCount = new JLabel();
+    private final JLabel emptyMessage = new JLabel("No se encontraron subrayados.");
     private final JTextField search = new JTextField();
-    private final JComboBox<String> bookFilter = new JComboBox<>();
-    private final boolean showBookFilter;
+    private final HighlightExportService exportService = new HighlightExportService();
+    private List<Bookmark> currentVisibleHighlights = List.of();
+    private boolean selectionMode;
     private JScrollPane scrollPane;
     private JPanel toolbar;
 
-    public HighlightListPanel(List<Bookmark> highlights, boolean showBookFilter) {
+    public HighlightListPanel(List<Bookmark> highlights, boolean groupByBook) {
         this.allHighlights = highlights == null ? List.of() : new ArrayList<>(highlights);
-        this.showBookFilter = showBookFilter;
+        this.groupByBook = groupByBook;
         setLayout(new BorderLayout(0, 14));
         setOpaque(false);
         add(createToolbar(), BorderLayout.NORTH);
         add(createScrollPane(), BorderLayout.CENTER);
-        configureFilters();
-        refresh();
+        configureSearch();
+        refresh(true);
     }
 
     private JPanel createToolbar() {
         toolbar = new JPanel();
         toolbar.setOpaque(false);
-        search.putClientProperty("JTextField.placeholderText", "Buscar en los subrayados...");
+        search.putClientProperty("JTextField.placeholderText",
+                groupByBook
+                        ? "Buscar libro, autor o texto subrayado..."
+                        : "Buscar en los subrayados...");
         search.setPreferredSize(new Dimension(360, 40));
-
-        if (showBookFilter) {
-            bookFilter.addItem(ALL_BOOKS);
-            allHighlights.stream().map(Bookmark::getBookTitle)
-                    .filter(title -> title != null && !title.isBlank()).distinct()
-                    .sorted(String.CASE_INSENSITIVE_ORDER).forEach(bookFilter::addItem);
-            bookFilter.setPreferredSize(new Dimension(250, 40));
-        }
         resultCount.setForeground(AppTheme.MUTED_TEXT);
         resultCount.setFont(AppTheme.font(Font.PLAIN, 12));
         toolbar.addComponentListener(new ComponentAdapter() {
@@ -78,179 +103,445 @@ public class HighlightListPanel extends JPanel {
     }
 
     private void configureToolbarLayout(int width) {
-        boolean compact = width < 620;
+        // Con cuatro acciones, una sola fila necesita bastante anchura.
+        // Cambiamos antes al diseño vertical para no comprimir ni desbordar la lista.
+        boolean compact = width < 900;
         Object previousMode = toolbar.getClientProperty("compactLayout");
-        if (previousMode instanceof Boolean && (Boolean) previousMode == compact) return;
+        if (previousMode instanceof Boolean && (Boolean) previousMode == compact) {
+            return;
+        }
+
         toolbar.putClientProperty("compactLayout", compact);
         toolbar.removeAll();
-
         if (compact) {
             toolbar.setLayout(new BoxLayout(toolbar, BoxLayout.Y_AXIS));
             search.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
             search.setAlignmentX(LEFT_ALIGNMENT);
             toolbar.add(search);
-            if (showBookFilter) {
-                toolbar.add(Box.createVerticalStrut(8));
-                bookFilter.setMaximumSize(new Dimension(Integer.MAX_VALUE, 40));
-                bookFilter.setAlignmentX(LEFT_ALIGNMENT);
-                toolbar.add(bookFilter);
-            }
             toolbar.add(Box.createVerticalStrut(7));
             resultCount.setAlignmentX(LEFT_ALIGNMENT);
             toolbar.add(resultCount);
+            if (groupByBook) {
+                toolbar.add(Box.createVerticalStrut(8));
+                JPanel actions = createActions(true);
+                actions.setAlignmentX(LEFT_ALIGNMENT);
+                toolbar.add(actions);
+            }
         } else {
             toolbar.setLayout(new BorderLayout(12, 6));
             toolbar.add(search, BorderLayout.CENTER);
-            if (showBookFilter) toolbar.add(bookFilter, BorderLayout.EAST);
+            if (groupByBook) {
+                toolbar.add(createActions(false), BorderLayout.EAST);
+            }
             toolbar.add(resultCount, BorderLayout.SOUTH);
         }
         toolbar.revalidate();
         toolbar.repaint();
-        revalidate();
+    }
+
+    private JPanel createActions(boolean compact) {
+        JPanel actions = new JPanel();
+        actions.setOpaque(false);
+        if (compact) {
+            int rows = selectionMode ? 2 : 1;
+            actions.setLayout(new GridLayout(rows, 2, 6, 6));
+            actions.setMaximumSize(new Dimension(
+                    Integer.MAX_VALUE, selectionMode ? 82 : 40));
+        }
+
+        if (selectionMode) {
+            JButton cancel = actionButton("Cancelar", AppTheme.PANEL_ALT);
+            cancel.addActionListener(event -> leaveSelectionMode());
+            actions.add(cancel);
+
+            JButton clear = actionButton("Limpiar", AppTheme.PANEL_ALT);
+            clear.setToolTipText("Desmarcar todos los subrayados");
+            clear.addActionListener(event -> {
+                selectedHighlightIds.clear();
+                refresh(false);
+            });
+            actions.add(clear);
+
+            JButton copy = actionButton("Copiar", AppTheme.PURPLE);
+            copy.addActionListener(event -> copySelectedHighlights());
+            actions.add(copy);
+
+            JButton export = actionButton("Exportar", AppTheme.GREEN);
+            export.setToolTipText("Exportar los subrayados seleccionados");
+            export.addActionListener(event -> exportHighlights(selectedHighlights()));
+            actions.add(export);
+        } else {
+            JButton select = actionButton("Seleccionar", AppTheme.PURPLE);
+            select.addActionListener(event -> enterSelectionMode());
+            actions.add(select);
+
+            JButton export = actionButton("Exportar", AppTheme.GREEN);
+            JPopupMenu exportMenu = createExportMenu();
+            export.addActionListener(event ->
+                    exportMenu.show(export, 0, export.getHeight()));
+            actions.add(export);
+        }
+        return actions;
+    }
+
+    private JButton actionButton(String text, Color background) {
+        JButton button = new JButton(text);
+        button.setFont(AppTheme.font(Font.BOLD, 12));
+        button.setForeground(Color.WHITE);
+        button.setBackground(background);
+        button.setFocusPainted(false);
+        button.setBorder(new EmptyBorder(9, 10, 9, 10));
+        return button;
+    }
+
+    private JPopupMenu createExportMenu() {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem visible = new JMenuItem("Exportar resultados visibles");
+        visible.addActionListener(event -> exportHighlights(currentVisibleHighlights));
+        menu.add(visible);
+
+        JMenuItem all = new JMenuItem("Exportar todos");
+        all.addActionListener(event -> exportHighlights(allHighlights));
+        menu.add(all);
+        return menu;
     }
 
     private JScrollPane createScrollPane() {
-        cards.setOpaque(false);
-        cards.setLayout(new BoxLayout(cards, BoxLayout.Y_AXIS));
-        scrollPane = new JScrollPane(cards);
+        highlightList.setCellRenderer(new GroupedHighlightCellRenderer());
+        highlightList.setBackground(AppTheme.BACKGROUND);
+        highlightList.setForeground(AppTheme.TEXT);
+        highlightList.setOpaque(false);
+        highlightList.setFixedCellHeight(-1);
+        highlightList.setBorder(null);
+        highlightList.addMouseListener(new MouseAdapter() {
+            @Override
+            public void mouseClicked(MouseEvent event) {
+                handleListClick(event.getPoint());
+            }
+        });
+
+        emptyMessage.setForeground(AppTheme.MUTED_TEXT);
+        emptyMessage.setBorder(new EmptyBorder(30, 8, 0, 8));
+        scrollPane = new JScrollPane(highlightList);
         scrollPane.setBorder(null);
         scrollPane.setOpaque(false);
         scrollPane.getViewport().setOpaque(false);
         scrollPane.setHorizontalScrollBarPolicy(ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
         scrollPane.getVerticalScrollBar().setUnitIncrement(18);
+        scrollPane.getViewport().addComponentListener(new ComponentAdapter() {
+            @Override
+            public void componentResized(ComponentEvent event) {
+                highlightList.setFixedCellHeight(1);
+                highlightList.setFixedCellHeight(-1);
+                highlightList.revalidate();
+            }
+        });
         return scrollPane;
     }
 
-    private void configureFilters() {
+    private void configureSearch() {
         search.getDocument().addDocumentListener(new DocumentListener() {
-            @Override public void insertUpdate(DocumentEvent e) { refresh(); }
-            @Override public void removeUpdate(DocumentEvent e) { refresh(); }
-            @Override public void changedUpdate(DocumentEvent e) { refresh(); }
+            @Override public void insertUpdate(DocumentEvent event) { refresh(true); }
+            @Override public void removeUpdate(DocumentEvent event) { refresh(true); }
+            @Override public void changedUpdate(DocumentEvent event) { refresh(true); }
         });
-        bookFilter.addActionListener(event -> refresh());
     }
 
-    private void refresh() {
-        String query = search.getText() == null ? "" : search.getText().strip().toLowerCase();
-        String selectedBook = showBookFilter ? (String) bookFilter.getSelectedItem() : ALL_BOOKS;
-        List<Bookmark> visible = allHighlights.stream()
+    private void handleListClick(Point point) {
+        if (!groupByBook || listModel.isEmpty()) {
+            return;
+        }
+        int index = highlightList.locationToIndex(point);
+        Rectangle bounds = index < 0 ? null : highlightList.getCellBounds(index, index);
+        if (bounds == null || !bounds.contains(point)) {
+            return;
+        }
+        HighlightListItem item = listModel.get(index);
+        if (item instanceof BookGroup group) {
+            int relativeX = point.x - bounds.x;
+            boolean arrowClicked = selectionMode
+                    ? relativeX >= 40 && relativeX <= 82
+                    : relativeX <= 48;
+            if (selectionMode && !arrowClicked) {
+                toggleBookSelection(group.groupId());
+            } else {
+                if (!expandedGroupIds.add(group.groupId())) {
+                    expandedGroupIds.remove(group.groupId());
+                }
+                refresh(false);
+            }
+        } else if (selectionMode && item instanceof Highlight highlight) {
+            String id = selectionId(highlight.bookmark());
+            if (!selectedHighlightIds.add(id)) {
+                selectedHighlightIds.remove(id);
+            }
+            highlightList.clearSelection();
+            refresh(false);
+        }
+    }
+
+    private void refresh(boolean moveToTop) {
+        Point previousPosition = scrollPane.getViewport().getViewPosition();
+        String query = normalized(search.getText());
+        List<Bookmark> visible = filteredHighlights(query);
+        currentVisibleHighlights = List.copyOf(visible);
+
+        listModel.clear();
+        if (groupByBook) {
+            populateGroupedModel(visible, query);
+        } else {
+            visible.forEach(mark -> listModel.addElement(new Highlight(
+                    mark, false, false, false)));
+        }
+
+        scrollPane.setViewportView(visible.isEmpty() ? emptyMessage : highlightList);
+        updateResultCount();
+        SwingUtilities.invokeLater(() -> scrollPane.getViewport().setViewPosition(
+                moveToTop ? new Point(0, 0) : previousPosition));
+    }
+
+    private void updateResultCount() {
+        int selected = selectedHighlightIds.size();
+        String text = currentVisibleHighlights.size() + " subrayados";
+        if (groupByBook) {
+            text += " · " + countGroups(currentVisibleHighlights) + " libros";
+        }
+        if (selected > 0) {
+            text += " · " + selected + " seleccionados";
+        }
+        resultCount.setText(text);
+    }
+
+    private List<Bookmark> selectedHighlights() {
+        return allHighlights.stream()
+                .filter(mark -> selectedHighlightIds.contains(selectionId(mark)))
+                .toList();
+    }
+
+    private void enterSelectionMode() {
+        selectionMode = true;
+        rebuildToolbar();
+        refresh(false);
+    }
+
+    private void leaveSelectionMode() {
+        selectionMode = false;
+        selectedHighlightIds.clear();
+        rebuildToolbar();
+        refresh(false);
+    }
+
+    private void rebuildToolbar() {
+        toolbar.putClientProperty("compactLayout", null);
+        configureToolbarLayout(toolbar.getWidth());
+    }
+
+    private void toggleBookSelection(String groupId) {
+        List<Bookmark> bookHighlights = currentVisibleHighlights.stream()
+                .filter(mark -> groupId(mark).equals(groupId))
+                .toList();
+        boolean allSelected = !bookHighlights.isEmpty()
+                && bookHighlights.stream().allMatch(mark ->
+                        selectedHighlightIds.contains(selectionId(mark)));
+        if (allSelected) {
+            bookHighlights.forEach(mark ->
+                    selectedHighlightIds.remove(selectionId(mark)));
+        } else {
+            bookHighlights.forEach(mark ->
+                    selectedHighlightIds.add(selectionId(mark)));
+        }
+        refresh(false);
+    }
+
+    private void copySelectedHighlights() {
+        List<Bookmark> selected = selectedHighlights();
+        if (selected.isEmpty()) {
+            showWarning("Selecciona uno o varios subrayados para copiarlos.");
+            return;
+        }
+        String text = selected.stream()
+                .map(this::copyText)
+                .collect(Collectors.joining(System.lineSeparator()
+                        + System.lineSeparator()));
+        Toolkit.getDefaultToolkit().getSystemClipboard()
+                .setContents(new StringSelection(text), null);
+        JOptionPane.showMessageDialog(this,
+                selected.size() + " subrayados copiados al portapapeles.",
+                "Copiar subrayados", JOptionPane.INFORMATION_MESSAGE);
+    }
+
+    private String copyText(Bookmark mark) {
+        StringBuilder text = new StringBuilder();
+        text.append(fallback(mark.getBookTitle(), "Libro desconocido"));
+        if (mark.getBookAuthor() != null && !mark.getBookAuthor().isBlank()) {
+            text.append(" — ").append(mark.getBookAuthor());
+        }
+        text.append(System.lineSeparator())
+                .append(fallback(mark.getText(), ""));
+        if (mark.hasUserNote()) {
+            text.append(System.lineSeparator())
+                    .append("Nota: ").append(mark.getUserNote());
+        }
+        return text.toString();
+    }
+
+    private void exportHighlights(List<Bookmark> highlights) {
+        if (highlights.isEmpty()) {
+            showWarning("No hay subrayados para exportar en esta opción.");
+            return;
+        }
+
+        ExportFormat format = (ExportFormat) JOptionPane.showInputDialog(
+                this,
+                "Selecciona el formato del archivo:",
+                "Formato de exportación",
+                JOptionPane.QUESTION_MESSAGE,
+                null,
+                ExportFormat.values(),
+                ExportFormat.TXT);
+        if (format == null) {
+            return;
+        }
+
+        JFileChooser chooser = new JFileChooser();
+        chooser.setDialogTitle("Exportar subrayados");
+        String extension = format.extension().substring(1);
+        chooser.setFileFilter(new FileNameExtensionFilter(
+                format + " (*" + format.extension() + ")", extension));
+        chooser.setSelectedFile(new File(
+                "subrayados_kobo" + format.extension()));
+        if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) {
+            return;
+        }
+
+        Path destination = withExtension(
+                chooser.getSelectedFile().toPath(), format.extension());
+        if (destination.toFile().exists()) {
+            int answer = JOptionPane.showConfirmDialog(this,
+                    "El archivo ya existe. ¿Quieres reemplazarlo?",
+                    "Confirmar exportación", JOptionPane.YES_NO_OPTION);
+            if (answer != JOptionPane.YES_OPTION) {
+                return;
+            }
+        }
+
+        try {
+            exportService.export(highlights, destination, format);
+            JOptionPane.showMessageDialog(this,
+                    highlights.size() + " subrayados exportados en "
+                            + format + " correctamente.",
+                    "Exportación completada", JOptionPane.INFORMATION_MESSAGE);
+        } catch (IOException exception) {
+            JOptionPane.showMessageDialog(this,
+                    "No se pudo crear el archivo: " + exception.getMessage(),
+                    "Error de exportación", JOptionPane.ERROR_MESSAGE);
+        }
+    }
+
+    private Path withExtension(Path path, String extension) {
+        String fileName = path.getFileName().toString();
+        if (fileName.toLowerCase(Locale.ROOT).endsWith(extension)) {
+            return path;
+        }
+        String baseName = fileName.replaceFirst("(?i)\\.(csv|txt|pdf)$", "");
+        return path.resolveSibling(baseName + extension);
+    }
+
+    private void showWarning(String message) {
+        JOptionPane.showMessageDialog(this, message,
+                "Subrayados", JOptionPane.WARNING_MESSAGE);
+    }
+
+    private List<Bookmark> filteredHighlights(String query) {
+        return allHighlights.stream()
                 .filter(mark -> contains(mark.getText(), query)
                         || contains(mark.getBookTitle(), query)
                         || contains(mark.getBookAuthor(), query)
                         || contains(mark.getChapterTitle(), query))
-                .filter(mark -> selectedBook == null || ALL_BOOKS.equals(selectedBook)
-                        || selectedBook.equals(mark.getBookTitle()))
-                .sorted(Comparator.comparing(Bookmark::getDateCreated,
+                .sorted(Comparator.comparing(
+                        Bookmark::getDateCreated,
                         Comparator.nullsLast(Comparator.reverseOrder())))
                 .toList();
-
-        cards.removeAll();
-        if (visible.isEmpty()) {
-            JLabel empty = new JLabel("No se encontraron subrayados.");
-            empty.setForeground(AppTheme.MUTED_TEXT);
-            empty.setBorder(new EmptyBorder(30, 8, 0, 8));
-            cards.add(empty);
-        } else {
-            visible.forEach(mark -> {
-                cards.add(createCard(mark));
-                cards.add(Box.createVerticalStrut(10));
-            });
-        }
-        resultCount.setText(visible.size() + " subrayados");
-        cards.revalidate();
-        cards.repaint();
-        SwingUtilities.invokeLater(() ->
-                scrollPane.getViewport().setViewPosition(new Point(0, 0)));
     }
 
-    private JPanel createCard(Bookmark mark) {
-        RoundedPanel card = new RoundedPanel(16, AppTheme.PANEL);
-        card.setLayout(new BorderLayout(12, 10));
-        card.setBorder(new EmptyBorder(15, 18, 15, 18));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 180));
-        card.setAlignmentX(Component.LEFT_ALIGNMENT);
+    private void populateGroupedModel(List<Bookmark> visible, String query) {
+        Map<String, List<Bookmark>> groups = visible.stream()
+                .collect(Collectors.groupingBy(
+                        this::groupId,
+                        LinkedHashMap::new,
+                        Collectors.toList()));
+        groups.entrySet().stream()
+                .sorted(Comparator.comparing(
+                        entry -> fallback(entry.getValue().get(0).getBookTitle(),
+                                "Libro desconocido"),
+                        String.CASE_INSENSITIVE_ORDER))
+                .forEach(entry -> {
+                    Bookmark first = entry.getValue().get(0);
+                    boolean expanded = !query.isEmpty()
+                            || expandedGroupIds.contains(entry.getKey());
+                    listModel.addElement(new BookGroup(
+                            entry.getKey(),
+                            fallback(first.getBookTitle(), "Libro desconocido"),
+                            fallback(first.getBookAuthor(), "Autor desconocido"),
+                            entry.getValue().size(),
+                            (int) entry.getValue().stream()
+                                    .filter(mark -> selectedHighlightIds.contains(
+                                            selectionId(mark)))
+                                    .count(),
+                            selectionMode,
+                            expanded));
+                    if (expanded) {
+                        entry.getValue().forEach(mark ->
+                                listModel.addElement(new Highlight(
+                                        mark,
+                                        true,
+                                        selectionMode,
+                                        selectedHighlightIds.contains(selectionId(mark)))));
+                    }
+                });
+    }
 
-        JPanel header = new JPanel(new BorderLayout());
-        header.setOpaque(false);
-        JLabel book = new JLabel(fallback(mark.getBookTitle(), "Libro desconocido"));
-        book.setFont(AppTheme.font(Font.BOLD, 14));
-        book.setForeground(AppTheme.PURPLE);
-        header.add(book, BorderLayout.CENTER);
-        JLabel date = new JLabel(formatDate(mark.getDateCreated()));
-        date.setFont(AppTheme.font(Font.PLAIN, 11));
-        date.setForeground(AppTheme.MUTED_TEXT);
-        header.add(date, BorderLayout.EAST);
-        card.add(header, BorderLayout.NORTH);
+    private int countGroups(List<Bookmark> highlights) {
+        return (int) highlights.stream().map(this::groupId).distinct().count();
+    }
 
-        JTextArea quote = new JTextArea(mark.getText());
-        quote.setEditable(false);
-        quote.setLineWrap(true);
-        quote.setWrapStyleWord(true);
-        quote.setOpaque(false);
-        quote.setForeground(AppTheme.TEXT);
-        quote.setFont(AppTheme.font(Font.PLAIN, 14));
-        quote.setColumns(1);
-        quote.setRows(Math.min(4, Math.max(2, mark.getText().length() / 90 + 1)));
-        quote.setCaretPosition(0);
-        card.add(quote, BorderLayout.CENTER);
+    private String groupId(Bookmark mark) {
+        if (mark.getVolumeId() != null && !mark.getVolumeId().isBlank()) {
+            return mark.getVolumeId();
+        }
+        return "unknown:" + fallback(mark.getBookTitle(), "Libro desconocido");
+    }
 
-        String meta = fallback(mark.getBookAuthor(), "Autor desconocido");
-        meta += " · Color " + mark.getColor();
-        JLabel details = new JLabel(meta);
-        details.setFont(AppTheme.font(Font.PLAIN, 11));
-        details.setForeground(colorFor(mark.getColor()));
-        card.add(details, BorderLayout.SOUTH);
-        return card;
+    private String selectionId(Bookmark mark) {
+        if (mark.getBookmarkId() != null && !mark.getBookmarkId().isBlank()) {
+            return mark.getBookmarkId();
+        }
+        return groupId(mark) + ":" + fallback(mark.getContentId(), "")
+                + ":" + fallback(mark.getDateCreated(), "")
+                + ":" + fallback(mark.getText(), "").hashCode();
     }
 
     private boolean contains(String value, String query) {
-        return query.isEmpty() || (value != null && value.toLowerCase().contains(query));
+        return query.isEmpty() || (value != null && normalized(value).contains(query));
     }
 
-    private String fallback(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
+    private String normalized(String value) {
+        return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
     }
 
-    private String formatDate(String value) {
-        if (value == null || value.isBlank()) return "Sin fecha";
-        return value.length() >= 10 ? value.substring(0, 10) : value;
+    private String fallback(String value, String alternative) {
+        return value == null || value.isBlank() ? alternative : value;
     }
 
-    private Color colorFor(int color) {
-        return switch (color) {
-            case 1 -> AppTheme.BLUE;
-            case 3 -> AppTheme.ORANGE;
-            default -> AppTheme.MUTED_TEXT;
-        };
-    }
-
-    /** Obliga a las tarjetas a utilizar el ancho del viewport, sin desbordar. */
-    private static class ScrollableCardsPanel extends JPanel implements Scrollable {
-        @Override
-        public Dimension getPreferredScrollableViewportSize() {
-            return getPreferredSize();
-        }
-
-        @Override
-        public int getScrollableUnitIncrement(Rectangle visibleRect,
-                                              int orientation, int direction) {
-            return 18;
-        }
-
-        @Override
-        public int getScrollableBlockIncrement(Rectangle visibleRect,
-                                               int orientation, int direction) {
-            return Math.max(80, visibleRect.height - 40);
+    /** Evita que el ancho preferido de los renderers ensanche la lista. */
+    private static final class ViewportWidthList<E> extends JList<E> {
+        private ViewportWidthList(DefaultListModel<E> model) {
+            super(model);
         }
 
         @Override
         public boolean getScrollableTracksViewportWidth() {
             return true;
-        }
-
-        @Override
-        public boolean getScrollableTracksViewportHeight() {
-            return false;
         }
     }
 }

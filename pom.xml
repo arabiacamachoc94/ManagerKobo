@@ -25,6 +25,12 @@
             <artifactId>flatlaf</artifactId>
             <version>3.4.1</version>
 	</dependency>
+        <!-- Creación de exportaciones PDF -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.8</version>
+        </dependency>
     </dependencies>
 
 </project>

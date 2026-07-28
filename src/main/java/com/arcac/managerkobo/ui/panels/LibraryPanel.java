@@ -109,6 +109,7 @@ public class LibraryPanel extends JPanel {
         table.getTableHeader().setForeground(AppTheme.MUTED_TEXT);
         table.getTableHeader().setFont(AppTheme.font(Font.BOLD, 13));
         table.getTableHeader().setPreferredSize(new Dimension(0, 48));
+        table.getTableHeader().setReorderingAllowed(false);
         TableRowSorter<BookTableModel> sorter = new TableRowSorter<>(tableModel);
         Collator textComparator = Collator.getInstance(Locale.forLanguageTag("es"));
         textComparator.setStrength(Collator.PRIMARY);

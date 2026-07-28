@@ -2,20 +2,22 @@ package com.arcac.managerkobo.ui;
 
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
-import com.arcac.managerkobo.database.DataBaseConnection;
-import com.arcac.managerkobo.database.KoboDAO;
-import com.arcac.managerkobo.service.LibraryStatisticsService;
+import com.arcac.managerkobo.service.KoboLibraryData;
+import com.arcac.managerkobo.service.KoboLibraryService;
 import com.arcac.managerkobo.service.ReadingStatistics;
 import com.arcac.managerkobo.ui.panels.DashboardPanel;
 import com.arcac.managerkobo.ui.panels.BookDetailPanel;
 import com.arcac.managerkobo.ui.panels.HighlightsPanel;
 import com.arcac.managerkobo.ui.panels.LibraryPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
-import com.arcac.managerkobo.util.KoboDetector;
-import com.arcac.managerkobo.util.KoboSyncResult;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
 import java.awt.Dimension;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.time.Instant;
+import java.time.LocalDateTime;
+import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JFrame;
@@ -32,25 +34,25 @@ public class MainFrame extends JFrame {
 
     private final CardLayout navigation = new CardLayout();
     private final JPanel contentPanel = new JPanel(navigation);
+    private final KoboLibraryService libraryService;
     private SidebarPanel sidebarPanel;
     private DashboardPanel dashboardPanel;
     private JPanel bookDetailPanel;
     private List<Bookmark> currentHighlights = List.of();
     private String currentPage = SidebarPanel.DASHBOARD;
+    private String bookDetailReturnPage = SidebarPanel.LIBRARY;
+    private LocalDateTime lastSynchronization;
     private static final String BOOK_DETAIL = "book-detail";
 
 
-    public MainFrame(List<Book> books, List<Bookmark> highlights,
-            ReadingStatistics statistics, boolean koboConnected) {
-        List<Book> safeBooks = books == null ? List.of() : new ArrayList<>(books);
-        List<Bookmark> safeHighlights = highlights == null
-                ? List.of() : new ArrayList<>(highlights);
-        ReadingStatistics safeStatistics = statistics == null
-                ? new LibraryStatisticsService().calculate(safeBooks, safeHighlights)
-                : statistics;
+    public MainFrame(KoboLibraryService libraryService, KoboLibraryData initialData) {
+        this.libraryService = libraryService;
+        this.lastSynchronization = databaseModificationDate(
+                initialData.syncResult().databasePath());
         configureWindow();
-        createLayout(koboConnected);
-        createPages(safeBooks, safeHighlights, safeStatistics);
+        createLayout(initialData.syncResult().koboConnected());
+        createPages(initialData.books(), initialData.highlights(),
+                initialData.statistics());
         showPage(SidebarPanel.DASHBOARD);
     }
 
@@ -69,7 +71,9 @@ public class MainFrame extends JFrame {
         currentHighlights = new ArrayList<>(highlights);
         bookDetailPanel = null;
         contentPanel.setBackground(AppTheme.BACKGROUND);
-        dashboardPanel = new DashboardPanel(books, statistics, this::synchronizeDatabase);
+        dashboardPanel = new DashboardPanel(
+                books, statistics, this::synchronizeDatabase,
+                this::showBookDetail, lastSynchronization);
         contentPanel.add(dashboardPanel, SidebarPanel.DASHBOARD);
         contentPanel.add(new LibraryPanel(books, highlights, this::showBookDetail), SidebarPanel.LIBRARY);
         contentPanel.add(new HighlightsPanel(highlights), SidebarPanel.HIGHLIGHTS);
@@ -93,6 +97,9 @@ public class MainFrame extends JFrame {
     }
 
     private void showBookDetail(Book book) {
+        if (!BOOK_DETAIL.equals(currentPage)) {
+            bookDetailReturnPage = currentPage;
+        }
         List<Bookmark> bookHighlights = currentHighlights.stream()
                 .filter(mark -> book.getContentId() != null
                 && book.getContentId().equals(mark.getVolumeId()))
@@ -101,7 +108,7 @@ public class MainFrame extends JFrame {
             contentPanel.remove(bookDetailPanel);
         }
         bookDetailPanel = new BookDetailPanel(book, bookHighlights,
-                () -> showPage(SidebarPanel.LIBRARY));
+                () -> showPage(bookDetailReturnPage));
         contentPanel.add(bookDetailPanel, BOOK_DETAIL);
         showPage(BOOK_DETAIL);
     }
@@ -112,34 +119,22 @@ public class MainFrame extends JFrame {
     private void synchronizeDatabase() {
         dashboardPanel.setSyncing(true);
 
-        new SwingWorker<ReloadedData, Void>() {
+        new SwingWorker<KoboLibraryData, Void>() {
             @Override
-            protected ReloadedData doInBackground() throws Exception {
-                DataBaseConnection database = DataBaseConnection.getInstance();
-                database.disconnect();
-
-                KoboSyncResult result = KoboDetector.synchronize();
-                if (!result.databaseAvailable()) {
-                    return new ReloadedData(result, List.of(), List.of(),
-                            new LibraryStatisticsService().calculate(List.of()));
-                }
-
-                database.connect(result.databasePath());
-                KoboDAO dao = new KoboDAO();
-                List<Book> books = dao.getAllBooks();
-                List<Bookmark> highlights = dao.getAllHighlightsWithBook();
-                ReadingStatistics statistics = new LibraryStatisticsService()
-                        .calculate(books, highlights);
-                return new ReloadedData(result, books, highlights, statistics);
+            protected KoboLibraryData doInBackground() {
+                return libraryService.synchronizeAndLoad();
             }
 
             @Override
             protected void done() {
                 try {
-                    ReloadedData data = get();
+                    KoboLibraryData data = get();
                     sidebarPanel.setKoboConnected(data.syncResult().koboConnected());
 
                     if (data.syncResult().databaseAvailable()) {
+                        if (data.syncResult().databaseUpdated()) {
+                            lastSynchronization = LocalDateTime.now();
+                        }
                         createPages(data.books(), data.highlights(), data.statistics());
                         showPage(currentPage);
                     } else {
@@ -162,20 +157,24 @@ public class MainFrame extends JFrame {
         }.execute();
     }
 
+    private LocalDateTime databaseModificationDate(String databasePath) {
+        if (databasePath == null || databasePath.isBlank()) {
+            return null;
+        }
+        try {
+            Instant modified = Files.getLastModifiedTime(Path.of(databasePath)).toInstant();
+            return LocalDateTime.ofInstant(modified, ZoneId.systemDefault());
+        } catch (Exception ignored) {
+            return null;
+        }
+    }
+
     private String rootMessage(Throwable throwable) {
         Throwable current = throwable;
         while (current.getCause() != null) {
             current = current.getCause();
         }
         return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
-    }
-
-    private record ReloadedData(
-            KoboSyncResult syncResult,
-            List<Book> books,
-            List<Bookmark> highlights,
-            ReadingStatistics statistics) {
-
     }
 
     /* Panel provisional. Próximo desarrollo*/
