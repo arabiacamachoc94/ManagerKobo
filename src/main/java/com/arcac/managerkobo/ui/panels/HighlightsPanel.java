@@ -1,5 +1,6 @@
 package com.arcac.managerkobo.ui.panels;
 
+import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
 import com.arcac.managerkobo.ui.components.HighlightListPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
@@ -15,12 +16,14 @@ import javax.swing.border.EmptyBorder;
 /** Pantalla global para consultar todos los subrayados. */
 public class HighlightsPanel extends JPanel {
 
-    public HighlightsPanel(List<Bookmark> highlights) {
+    public HighlightsPanel(List<Book> books, List<Bookmark> highlights) {
+        List<Book> safeBooks = books == null ? List.of() : books;
         List<Bookmark> safeHighlights = highlights == null ? List.of() : highlights;
         setLayout(new BorderLayout());
         setBackground(AppTheme.BACKGROUND);
         add(createHeader(safeHighlights.size()), BorderLayout.NORTH);
-        HighlightListPanel list = new HighlightListPanel(safeHighlights, true);
+        HighlightListPanel list = new HighlightListPanel(
+                safeHighlights, true, safeBooks);
         list.setBorder(new EmptyBorder(0, 32, 28, 32));
         add(list, BorderLayout.CENTER);
     }

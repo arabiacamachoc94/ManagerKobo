@@ -26,6 +26,7 @@ public class Main {
                     failedResult,
                     List.of(),
                     List.of(),
+                    List.of(),
                     new LibraryStatisticsService().calculate(List.of(), List.of()));
         }
 

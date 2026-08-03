@@ -18,6 +18,24 @@ public final class IconLoader {
 
     private IconLoader() { }
 
+    public static ImageIcon load(String resourcePath, int size) {
+        String key = resourcePath + "|" + size + "|original";
+        ImageIcon cached = CACHE.get(key);
+        if (cached != null) return cached;
+
+        try {
+            BufferedImage source = readImage(resourcePath);
+            if (source == null) return null;
+            Image scaled = source.getScaledInstance(
+                    size, size, Image.SCALE_SMOOTH);
+            ImageIcon icon = new ImageIcon(scaled);
+            CACHE.put(key, icon);
+            return icon;
+        } catch (IOException exception) {
+            return null;
+        }
+    }
+
     public static ImageIcon loadTinted(String resourcePath, int size, Color color) {
         String key = resourcePath + "|" + size + "|" + color.getRGB();
         ImageIcon cached = CACHE.get(key);

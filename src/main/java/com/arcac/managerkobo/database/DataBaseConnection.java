@@ -32,7 +32,7 @@ public class DataBaseConnection {
         // Le indicamos al driver de JDBC que use SQLite
         String url = "jdbc:sqlite:" + databasePath;
         connection = DriverManager.getConnection(url);
-        System.out.println("Conexión a la base de datos abierta.");
+        
     }
 
 
@@ -40,7 +40,7 @@ public class DataBaseConnection {
         try {
             if (connection != null && !connection.isClosed()) {
                 connection.close();
-                System.out.println("Conexión a la base de datos cerrada.");
+                
             }
         } catch (SQLException e) {
             System.err.println("Error al intentar cerrar la conexión: " + e.getMessage());

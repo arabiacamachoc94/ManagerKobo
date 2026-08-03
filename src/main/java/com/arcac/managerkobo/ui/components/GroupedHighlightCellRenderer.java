@@ -22,6 +22,7 @@ public class GroupedHighlightCellRenderer
 
     private final RoundedPanel groupPanel = new RoundedPanel(14, AppTheme.PANEL_ALT);
     private final JLabel arrow = new JLabel();
+    private final JLabel cover = new JLabel();
     private final JLabel title = new JLabel();
     private final JLabel author = new JLabel();
     private final JLabel count = new JLabel();
@@ -34,7 +35,7 @@ public class GroupedHighlightCellRenderer
     public GroupedHighlightCellRenderer() {
         groupPanel.setLayout(new BorderLayout(12, 0));
         groupPanel.setBorder(new EmptyBorder(14, 16, 14, 16));
-        groupPanel.setPreferredSize(new Dimension(400, 66));
+        groupPanel.setPreferredSize(new Dimension(400, 72));
 
         arrow.setFont(AppTheme.font(Font.BOLD, 16));
         arrow.setForeground(AppTheme.PURPLE);
@@ -48,6 +49,9 @@ public class GroupedHighlightCellRenderer
         groupCheck.setToolTipText("Seleccionar todos los subrayados de este libro");
         left.add(groupCheck);
         left.add(arrow);
+        cover.setPreferredSize(new Dimension(38, 42));
+        cover.setHorizontalAlignment(SwingConstants.CENTER);
+        left.add(cover);
         groupPanel.add(left, BorderLayout.WEST);
 
         JPanel text = new JPanel(new BorderLayout(0, 3));
@@ -76,10 +80,14 @@ public class GroupedHighlightCellRenderer
             boolean selected,
             boolean hasFocus) {
         if (value instanceof BookGroup group) {
-            arrow.setText(group.expanded() ? "▾" : "▸");
+            cover.setIcon(group.cover());
+            cover.setVisible(group.cover() != null);
+            arrow.setText(group.loading() ? "↻"
+                    : group.expanded() ? "▾" : "▸");
             title.setText(group.title());
             author.setText(group.author());
-            count.setText(group.highlightCount() + " subr."
+            count.setText(group.loading() ? "Cargando..."
+                    : group.highlightCount() + " subr."
                     + (group.selectedCount() > 0
                             ? " · " + group.selectedCount() + " ✓"
                             : ""));

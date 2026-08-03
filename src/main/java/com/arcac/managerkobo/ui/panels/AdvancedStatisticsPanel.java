@@ -123,6 +123,16 @@ public class AdvancedStatisticsPanel extends JPanel {
             case HIGHLIGHT_DENSITY -> showHighlightDensity();
             case BOOKS_BY_LANGUAGE -> showBooksByLanguage();
             case READING_PROGRESS -> showReadingProgress();
+            case HIGHLIGHTS_BY_MONTH -> showMonthly(
+                    statistics.highlightsByMonth(), AppTheme.ORANGE,
+                    "subrayados");
+            case NOTES_BY_MONTH -> showMonthly(
+                    statistics.notesByMonth(), AppTheme.GREEN, "notas");
+            case WORDS_BY_MONTH -> showMonthly(
+                    statistics.wordsByMonth(), AppTheme.BLUE, "palabras");
+            case FINISHED_BOOKS_BY_MONTH -> showMonthly(
+                    statistics.finishedBooksByMonth(), AppTheme.PURPLE,
+                    "libros");
         }
     }
 
@@ -265,6 +275,19 @@ public class AdvancedStatisticsPanel extends JPanel {
                 + Math.round(average) + "%");
     }
 
+    private void showMonthly(Map<String, Integer> monthlyValues,
+            Color color, String unit) {
+        int skip = Math.max(0, monthlyValues.size() - MAX_VISIBLE_VALUES);
+        List<BarValue> values = monthlyValues.entrySet().stream()
+                .skip(skip)
+                .map(entry -> new BarValue(
+                        entry.getKey(),
+                        entry.getValue(),
+                        entry.getValue() + " " + unit))
+                .toList();
+        chart.setValues(values, color);
+    }
+
     private JPanel verticalPanel() {
         JPanel panel = new JPanel();
         panel.setOpaque(false);
@@ -296,7 +319,11 @@ public class AdvancedStatisticsPanel extends JPanel {
         HIGHLIGHTS_BY_BOOK("Subrayados por libro"),
         HIGHLIGHT_DENSITY("Densidad de subrayados por libro"),
         BOOKS_BY_LANGUAGE("Libros por idioma"),
-        READING_PROGRESS("Progreso de libros en curso");
+        READING_PROGRESS("Progreso de libros en curso"),
+        HIGHLIGHTS_BY_MONTH("Subrayados por mes"),
+        NOTES_BY_MONTH("Notas por mes"),
+        WORDS_BY_MONTH("Palabras consultadas por mes"),
+        FINISHED_BOOKS_BY_MONTH("Libros finalizados por mes (estimado)");
 
         private final String label;
 

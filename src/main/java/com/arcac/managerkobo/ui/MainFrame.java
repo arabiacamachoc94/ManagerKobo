@@ -2,6 +2,7 @@ package com.arcac.managerkobo.ui;
 
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.model.LookedUpWord;
 import com.arcac.managerkobo.service.KoboLibraryData;
 import com.arcac.managerkobo.service.KoboLibraryService;
 import com.arcac.managerkobo.service.ReadingStatistics;
@@ -9,6 +10,7 @@ import com.arcac.managerkobo.ui.panels.DashboardPanel;
 import com.arcac.managerkobo.ui.panels.BookDetailPanel;
 import com.arcac.managerkobo.ui.panels.HighlightsPanel;
 import com.arcac.managerkobo.ui.panels.LibraryPanel;
+import com.arcac.managerkobo.ui.panels.WordsPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import java.awt.BorderLayout;
 import java.awt.CardLayout;
@@ -21,11 +23,9 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JFrame;
-import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
-import javax.swing.SwingConstants;
 
 /**
  * Ventana principal: contiene la navegación y coordina las pantallas.
@@ -52,7 +52,7 @@ public class MainFrame extends JFrame {
         configureWindow();
         createLayout(initialData.syncResult().koboConnected());
         createPages(initialData.books(), initialData.highlights(),
-                initialData.statistics());
+                initialData.words(), initialData.statistics());
         showPage(SidebarPanel.DASHBOARD);
     }
 
@@ -66,27 +66,26 @@ public class MainFrame extends JFrame {
     }
 
     private void createPages(List<Book> books, List<Bookmark> highlights,
-            ReadingStatistics statistics) {
+            List<LookedUpWord> words, ReadingStatistics statistics) {
         contentPanel.removeAll();
         currentHighlights = new ArrayList<>(highlights);
         bookDetailPanel = null;
         contentPanel.setBackground(AppTheme.BACKGROUND);
         dashboardPanel = new DashboardPanel(
-                books, statistics, this::synchronizeDatabase,
-                this::showBookDetail, lastSynchronization);
+                books, statistics, this::showBookDetail,
+                lastSynchronization);
         contentPanel.add(dashboardPanel, SidebarPanel.DASHBOARD);
         contentPanel.add(new LibraryPanel(books, highlights, this::showBookDetail), SidebarPanel.LIBRARY);
-        contentPanel.add(new HighlightsPanel(highlights), SidebarPanel.HIGHLIGHTS);
-        contentPanel.add(placeholder("Palabras", "Tu diccionario personal aparecerá aquí."), SidebarPanel.WORDS);
-        contentPanel.add(placeholder("Logros", "Tus hitos de lectura aparecerán aquí."), SidebarPanel.ACHIEVEMENTS);
-        contentPanel.add(placeholder("Ajustes", "Preferencias de Kobo Manager."), SidebarPanel.SETTINGS);
+        contentPanel.add(new HighlightsPanel(books, highlights), SidebarPanel.HIGHLIGHTS);
+        contentPanel.add(new WordsPanel(words), SidebarPanel.WORDS);
         contentPanel.revalidate();
         contentPanel.repaint();
     }
 
     private void createLayout(boolean koboConnected) {
         setLayout(new BorderLayout());
-        sidebarPanel = new SidebarPanel(this::showPage, koboConnected);
+        sidebarPanel = new SidebarPanel(
+                this::showPage, this::synchronizeDatabase, koboConnected);
         add(sidebarPanel, BorderLayout.WEST);
         add(contentPanel, BorderLayout.CENTER);
     }
@@ -117,7 +116,7 @@ public class MainFrame extends JFrame {
      * Ejecuta copia, reconexión y recarga sin bloquear el hilo de Swing.
      */
     private void synchronizeDatabase() {
-        dashboardPanel.setSyncing(true);
+        sidebarPanel.setSyncing(true);
 
         new SwingWorker<KoboLibraryData, Void>() {
             @Override
@@ -135,11 +134,11 @@ public class MainFrame extends JFrame {
                         if (data.syncResult().databaseUpdated()) {
                             lastSynchronization = LocalDateTime.now();
                         }
-                        createPages(data.books(), data.highlights(), data.statistics());
+                        createPages(data.books(), data.highlights(),
+                                data.words(), data.statistics());
                         showPage(currentPage);
-                    } else {
-                        dashboardPanel.setSyncing(false);
                     }
+                    sidebarPanel.setSyncing(false);
 
                     int messageType = data.syncResult().koboConnected()
                             ? JOptionPane.INFORMATION_MESSAGE
@@ -147,7 +146,7 @@ public class MainFrame extends JFrame {
                     JOptionPane.showMessageDialog(MainFrame.this,
                             data.syncResult().message(), "Sincronización", messageType);
                 } catch (Exception exception) {
-                    dashboardPanel.setSyncing(false);
+                    sidebarPanel.setSyncing(false);
                     JOptionPane.showMessageDialog(MainFrame.this,
                             "No se pudo sincronizar la base de datos: "
                             + rootMessage(exception),
@@ -177,13 +176,4 @@ public class MainFrame extends JFrame {
         return current.getMessage() == null ? current.getClass().getSimpleName() : current.getMessage();
     }
 
-    /* Panel provisional. Próximo desarrollo*/
-    private JPanel placeholder(String title, String description) {
-        JPanel panel = new JPanel(new BorderLayout());
-        panel.setBackground(AppTheme.BACKGROUND);
-        JLabel text = new JLabel("<html><h1>" + title + "</h1><p>" + description + "</p></html>", SwingConstants.CENTER);
-        text.setForeground(AppTheme.TEXT);
-        panel.add(text);
-        return panel;
-    }
 }

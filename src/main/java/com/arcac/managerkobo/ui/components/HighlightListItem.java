@@ -1,6 +1,7 @@
 package com.arcac.managerkobo.ui.components;
 
 import com.arcac.managerkobo.model.Bookmark;
+import javax.swing.ImageIcon;
 
 /** Tipos de fila que pueden aparecer en la lista agrupada de subrayados. */
 public sealed interface HighlightListItem
@@ -13,7 +14,9 @@ public sealed interface HighlightListItem
             int highlightCount,
             int selectedCount,
             boolean selectionMode,
-            boolean expanded) implements HighlightListItem {
+            boolean expanded,
+            boolean loading,
+            ImageIcon cover) implements HighlightListItem {
     }
 
     record Highlight(

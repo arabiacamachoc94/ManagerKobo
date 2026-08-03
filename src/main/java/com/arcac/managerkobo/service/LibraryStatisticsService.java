@@ -2,6 +2,10 @@ package com.arcac.managerkobo.service;
 
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.model.LookedUpWord;
+import java.time.YearMonth;
+import java.time.format.DateTimeFormatter;
+import java.time.format.TextStyle;
 import java.util.Comparator;
 import java.util.HashMap;
 import java.util.List;
@@ -16,8 +20,14 @@ import java.util.Locale;
 public class LibraryStatisticsService {
 
     public ReadingStatistics calculate(List<Book> books, List<Bookmark> highlights) {
+        return calculate(books, highlights, List.of());
+    }
+
+    public ReadingStatistics calculate(List<Book> books,
+            List<Bookmark> highlights, List<LookedUpWord> words) {
         List<Book> safeBooks = books == null ? List.of() : books;
         List<Bookmark> safeHighlights = highlights == null ? List.of() : highlights;
+        List<LookedUpWord> safeWords = words == null ? List.of() : words;
 
         int finished = (int) safeBooks.stream().filter(Book::isFinished).count();
         int reading = (int) safeBooks.stream().filter(Book::isInProgress).count();
@@ -93,6 +103,26 @@ public class LibraryStatisticsService {
                 .filter(Book::isInProgress)
                 .sorted(Comparator.comparingInt(Book::getPercentRead).reversed())
                 .toList();
+        Map<String, Integer> highlightsByMonth = monthlyCounts(
+                safeHighlights.stream()
+                        .map(Bookmark::getDateCreated)
+                        .toList());
+        Map<String, Integer> notesByMonth = monthlyCounts(
+                safeHighlights.stream()
+                        .filter(Bookmark::hasUserNote)
+                        .map(Bookmark::getDateCreated)
+                        .toList());
+        Map<String, Integer> wordsByMonth = monthlyCounts(
+                safeWords.stream()
+                        .map(LookedUpWord::dateCreated)
+                        .toList());
+        Map<String, Integer> finishedBooksByMonth = monthlyCounts(
+                safeBooks.stream()
+                        .filter(Book::isFinished)
+                        .map(book -> fallbackDate(
+                                book.getLastTimeFinishedReading(),
+                                book.getDateLastRead()))
+                        .toList());
 
         return new ReadingStatistics(safeBooks.size(), finished, reading, unread,
                 seconds, safeHighlights.size(), notes, averageProgress,
@@ -101,7 +131,9 @@ public class LibraryStatisticsService {
                 sortDescending(highlightsByAuthor),
                 booksByTime, averageStarted, averageFinished,
                 highlightsByBook, densityByBook,
-                sortDescending(booksByLanguage), inProgressBooks);
+                sortDescending(booksByLanguage), inProgressBooks,
+                highlightsByMonth, notesByMonth, wordsByMonth,
+                finishedBooksByMonth);
     }
 
     public ReadingStatistics calculate(List<Book> books) {
@@ -162,5 +194,40 @@ public class LibraryStatisticsService {
             case "ca", "cat" -> "Catalán";
             default -> language.strip();
         };
+    }
+
+    private Map<String, Integer> monthlyCounts(List<String> dates) {
+        DateTimeFormatter input = DateTimeFormatter.ofPattern("yyyy-MM");
+        Map<YearMonth, Integer> counts = new HashMap<>();
+        for (String date : dates) {
+            if (date == null || date.length() < 7) {
+                continue;
+            }
+            try {
+                YearMonth month = YearMonth.parse(date.substring(0, 7), input);
+                counts.merge(month, 1, Integer::sum);
+            } catch (RuntimeException ignored) {
+                // Se omiten fechas con formatos desconocidos.
+            }
+        }
+        return counts.entrySet().stream()
+                .sorted(Map.Entry.comparingByKey())
+                .collect(Collectors.toMap(
+                        entry -> monthLabel(entry.getKey()),
+                        Map.Entry::getValue,
+                        (first, second) -> first,
+                        LinkedHashMap::new));
+    }
+
+    private String monthLabel(YearMonth month) {
+        String name = month.getMonth()
+                .getDisplayName(TextStyle.SHORT, new Locale("es", "ES"));
+        return name.substring(0, 1).toUpperCase(Locale.ROOT)
+                + name.substring(1) + " " + month.getYear();
+    }
+
+    private String fallbackDate(String preferred, String alternative) {
+        return preferred == null || preferred.isBlank()
+                ? alternative : preferred;
     }
 }

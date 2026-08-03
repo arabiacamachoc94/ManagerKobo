@@ -106,11 +106,12 @@ public class HighlightCellRenderer extends JPanel
 
         int listWidth = list == null ? getWidth() : list.getWidth();
         int textWidth = Math.max(180, listWidth - 70);
+        quoteArea.setPreferredSize(null);
         quoteArea.setSize(new Dimension(textWidth, Short.MAX_VALUE));
-        quoteArea.setRows(estimateRows(text, textWidth));
+        Dimension textSize = quoteArea.getPreferredSize();
+        quoteArea.setPreferredSize(new Dimension(textWidth, textSize.height));
 
-        detailsLabel.setText(fallback(mark.getBookAuthor(), "Autor desconocido")
-                + " · Color " + mark.getColor());
+        detailsLabel.setText("Color " + mark.getColor());
         detailsLabel.setForeground(colorFor(mark.getColor()));
 
         Color selectionColor = selected ? AppTheme.NAV_SELECTED : AppTheme.BACKGROUND;
@@ -118,16 +119,6 @@ public class HighlightCellRenderer extends JPanel
         setOpaque(selected);
         selectionIndicator.setOpaque(selected);
         return this;
-    }
-
-    private int estimateRows(String text, int width) {
-        int charactersPerLine = Math.max(25, width / 8);
-        int lines = 0;
-        for (String paragraph : text.split("\\R", -1)) {
-            lines += Math.max(1,
-                    (int) Math.ceil(paragraph.length() / (double) charactersPerLine));
-        }
-        return Math.max(2, lines);
     }
 
     private String fallback(String value, String alternative) {

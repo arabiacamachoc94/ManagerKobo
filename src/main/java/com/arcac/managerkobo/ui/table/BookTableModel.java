@@ -3,16 +3,24 @@ package com.arcac.managerkobo.ui.table;
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
 import java.util.ArrayList;
+import java.util.EnumSet;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import javax.swing.table.AbstractTableModel;
 
 /** Adapta una lista de Book al formato de filas y columnas de JTable. */
 public class BookTableModel extends AbstractTableModel {
+    public enum BookFilter {
+        READING, FINISHED, NOT_STARTED, WITH_HIGHLIGHTS
+    }
+
     private final List<Book> allBooks;
     private List<Book> visibleBooks;
     private final Map<String, Integer> highlightCounts = new HashMap<>();
+    private String searchQuery = "";
+    private Set<BookFilter> currentFilters = EnumSet.noneOf(BookFilter.class);
     private final String[] columns = {"Título", "Autor", "Progreso", "Estado", "Tiempo", "Subrayados"};
 
     public BookTableModel(List<Book> books) {
@@ -32,12 +40,43 @@ public class BookTableModel extends AbstractTableModel {
     }
 
     public void filter(String text) {
-        String query = text == null ? "" : text.strip().toLowerCase();
+        searchQuery = text == null ? "" : text.strip().toLowerCase();
+        applyFilters();
+    }
+
+    public void setBookFilters(Set<BookFilter> filters) {
+        currentFilters = filters == null || filters.isEmpty()
+                ? EnumSet.noneOf(BookFilter.class)
+                : EnumSet.copyOf(filters);
+        applyFilters();
+    }
+
+    private void applyFilters() {
         visibleBooks = allBooks.stream()
-                .filter(book -> safe(book.getTitle()).toLowerCase().contains(query)
-                        || safe(book.getAuthor()).toLowerCase().contains(query))
+                .filter(book -> safe(book.getTitle()).toLowerCase()
+                                .contains(searchQuery)
+                        || safe(book.getAuthor()).toLowerCase()
+                                .contains(searchQuery))
+                .filter(this::matchesCurrentFilter)
                 .toList();
         fireTableDataChanged();
+    }
+
+    private boolean matchesCurrentFilter(Book book) {
+        boolean hasStatusFilter = currentFilters.contains(BookFilter.READING)
+                || currentFilters.contains(BookFilter.FINISHED)
+                || currentFilters.contains(BookFilter.NOT_STARTED);
+        boolean matchesStatus = !hasStatusFilter
+                || currentFilters.contains(BookFilter.READING)
+                        && book.isInProgress()
+                || currentFilters.contains(BookFilter.FINISHED)
+                        && book.isFinished()
+                || currentFilters.contains(BookFilter.NOT_STARTED)
+                        && book.isNotStarted();
+        boolean matchesHighlights =
+                !currentFilters.contains(BookFilter.WITH_HIGHLIGHTS)
+                || highlightCounts.getOrDefault(book.getContentId(), 0) > 0;
+        return matchesStatus && matchesHighlights;
     }
 
     @Override public int getRowCount() { return visibleBooks.size(); }
@@ -68,8 +107,8 @@ public class BookTableModel extends AbstractTableModel {
     }
 
     private String statusOf(Book book) {
-        if (book.getReadStatus() == 2 || book.getPercentRead() >= 100) return "Terminado";
-        if (book.getPercentRead() > 0) return "Leyendo";
+        if (book.isFinished()) return "Terminado";
+        if (book.isInProgress()) return "Leyendo";
         return "Sin empezar";
     }
 

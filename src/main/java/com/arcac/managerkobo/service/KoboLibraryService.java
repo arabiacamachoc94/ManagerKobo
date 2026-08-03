@@ -5,6 +5,7 @@ import com.arcac.managerkobo.database.KoboDAO;
 import com.arcac.managerkobo.database.KoboDataException;
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.model.LookedUpWord;
 import com.arcac.managerkobo.util.KoboDetector;
 import com.arcac.managerkobo.util.KoboSyncResult;
 import java.sql.SQLException;
@@ -34,7 +35,7 @@ public class KoboLibraryService {
         KoboSyncResult syncResult = KoboDetector.synchronize();
 
         if (!syncResult.databaseAvailable()) {
-            return createData(syncResult, List.of(), List.of());
+            return createData(syncResult, List.of(), List.of(), List.of());
         }
 
         try {
@@ -47,12 +48,16 @@ public class KoboLibraryService {
         KoboDAO dao = new KoboDAO();
         List<Book> books = dao.getAllBooks();
         List<Bookmark> highlights = dao.getAllHighlightsWithBook();
-        return createData(syncResult, books, highlights);
+        List<LookedUpWord> words = dao.getLookedUpWords();
+        return createData(syncResult, books, highlights, words);
     }
 
     private KoboLibraryData createData(KoboSyncResult syncResult,
-            List<Book> books, List<Bookmark> highlights) {
-        ReadingStatistics statistics = statisticsService.calculate(books, highlights);
-        return new KoboLibraryData(syncResult, books, highlights, statistics);
+            List<Book> books, List<Bookmark> highlights,
+            List<LookedUpWord> words) {
+        ReadingStatistics statistics =
+                statisticsService.calculate(books, highlights, words);
+        return new KoboLibraryData(
+                syncResult, books, highlights, words, statistics);
     }
 }

@@ -2,33 +2,40 @@ package com.arcac.managerkobo.ui.panels;
 
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.service.BookCoverService;
 import com.arcac.managerkobo.ui.components.HighlightListPanel;
 import com.arcac.managerkobo.ui.components.RoundedPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.util.IconLoader;
 import java.awt.BorderLayout;
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.GridLayout;
+import java.util.ArrayList;
 import java.util.List;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
+import javax.swing.SwingConstants;
+import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 
 /** Vista de un libro, sus estadísticas y sus subrayados. */
 public class BookDetailPanel extends JPanel {
+    private final BookCoverService coverService = new BookCoverService();
 
     public BookDetailPanel(Book book, List<Bookmark> highlights,
             Runnable backAction) {
-        setLayout(new BorderLayout(0, 16));
+        setLayout(new BorderLayout(0, 14));
         setBackground(AppTheme.BACKGROUND);
-        add(createHeader(book, backAction), BorderLayout.NORTH);
+        add(createHeader(backAction), BorderLayout.NORTH);
 
-        JPanel content = new JPanel(new BorderLayout(0, 18));
+        JPanel content = new JPanel(new BorderLayout(0, 14));
         content.setOpaque(false);
         content.setBorder(new EmptyBorder(0, 32, 28, 32));
         content.add(createOverview(book, highlights), BorderLayout.NORTH);
@@ -36,20 +43,10 @@ public class BookDetailPanel extends JPanel {
         add(content, BorderLayout.CENTER);
     }
 
-    private JPanel createOverview(Book book, List<Bookmark> highlights) {
-        JPanel overview = new JPanel();
-        overview.setOpaque(false);
-        overview.setLayout(new BoxLayout(overview, BoxLayout.Y_AXIS));
-        overview.add(createSummary(book));
-        overview.add(Box.createVerticalStrut(12));
-        overview.add(createBookStatistics(book, highlights));
-        return overview;
-    }
-
-    private JPanel createHeader(Book book, Runnable backAction) {
+    private JPanel createHeader(Runnable backAction) {
         JPanel header = new JPanel(new BorderLayout(16, 0));
         header.setOpaque(false);
-        header.setBorder(new EmptyBorder(25, 32, 10, 32));
+        header.setBorder(new EmptyBorder(22, 32, 8, 32));
 
         JButton back = new JButton();
         back.setIcon(IconLoader.loadTinted("/icons/back.png", 18, AppTheme.TEXT));
@@ -62,29 +59,30 @@ public class BookDetailPanel extends JPanel {
         back.setBorder(new EmptyBorder(10, 14, 10, 14));
         back.addActionListener(event -> backAction.run());
         header.add(back, BorderLayout.WEST);
-
-        JLabel title = label(fallback(book.getTitle(), "Sin título"),
-                24, Font.BOLD, AppTheme.TEXT);
-        header.add(title, BorderLayout.CENTER);
+        header.add(label("Detalle del libro", 24, Font.BOLD, AppTheme.TEXT),
+                BorderLayout.CENTER);
         return header;
     }
 
-    private JPanel createSummary(Book book) {
+    /** Portada, información y métricas reunidas en una única tarjeta compacta. */
+    private JPanel createOverview(Book book, List<Bookmark> highlights) {
         RoundedPanel card = new RoundedPanel(18, AppTheme.PANEL);
-        card.setLayout(new BorderLayout(22, 12));
-        card.setBorder(new EmptyBorder(20, 22, 20, 22));
+        card.setLayout(new BorderLayout(18, 14));
+        card.setBorder(new EmptyBorder(15, 18, 15, 18));
 
-        JLabel cover = new JLabel();
-        cover.setIcon(IconLoader.loadTinted(
-                "/icons/libro.png", 46, AppTheme.PURPLE));
-        card.add(cover, BorderLayout.WEST);
+        JPanel bookInfo = new JPanel(new BorderLayout(16, 0));
+        bookInfo.setOpaque(false);
+        bookInfo.add(createCover(book), BorderLayout.WEST);
 
-        JPanel info = verticalPanel();
-        info.add(label(fallback(book.getAuthor(), "Autor desconocido"),
-                16, Font.BOLD, AppTheme.TEXT));
-        info.add(Box.createVerticalStrut(5));
-        info.add(label(metadata(book), 12, Font.PLAIN, AppTheme.MUTED_TEXT));
-        info.add(Box.createVerticalStrut(13));
+        JPanel text = verticalPanel();
+        text.add(label(fallback(book.getTitle(), "Sin título"),
+                18, Font.BOLD, AppTheme.TEXT));
+        text.add(Box.createVerticalStrut(3));
+        text.add(label(fallback(book.getAuthor(), "Autor desconocido"),
+                14, Font.BOLD, AppTheme.MUTED_TEXT));
+        text.add(Box.createVerticalStrut(3));
+        text.add(label(metadata(book), 11, Font.PLAIN, AppTheme.MUTED_TEXT));
+        text.add(Box.createVerticalStrut(9));
 
         JProgressBar progress = new JProgressBar(0, 100);
         progress.setValue(book.getPercentRead());
@@ -93,14 +91,21 @@ public class BookDetailPanel extends JPanel {
         progress.setForeground(AppTheme.PURPLE);
         progress.setBackground(AppTheme.BORDER);
         progress.setBorderPainted(false);
-        info.add(progress);
-        card.add(info, BorderLayout.CENTER);
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 112));
-        card.setAlignmentX(LEFT_ALIGNMENT);
+        text.add(progress);
+        bookInfo.add(text, BorderLayout.CENTER);
+        card.add(bookInfo, BorderLayout.NORTH);
+
+        List<MetricValue> values = createMetricValues(book, highlights);
+        JPanel metrics = new JPanel(new GridLayout(0, 4, 14, 9));
+        metrics.setOpaque(false);
+        values.forEach(value ->
+                metrics.add(metric(value.value(), value.caption())));
+        card.add(metrics, BorderLayout.CENTER);
         return card;
     }
 
-    private JPanel createBookStatistics(Book book, List<Bookmark> highlights) {
+    private List<MetricValue> createMetricValues(
+            Book book, List<Bookmark> highlights) {
         int notes = (int) highlights.stream()
                 .filter(Bookmark::hasUserNote)
                 .count();
@@ -109,23 +114,80 @@ public class BookDetailPanel extends JPanel {
                 ? "Sin datos"
                 : String.format("%.1f / h", highlights.size() / hours);
 
-        RoundedPanel card = new RoundedPanel(18, AppTheme.PANEL_ALT);
-        card.setLayout(new GridLayout(1, 5, 12, 0));
-        card.setBorder(new EmptyBorder(15, 20, 15, 20));
-        card.add(metric(formatTime(book.getSecondsRead()), "Tiempo leído"));
-        card.add(metric(String.valueOf(book.getTimesStartedReading()), "Sesiones"));
-        card.add(metric(String.valueOf(highlights.size()), "Subrayados"));
-        card.add(metric(String.valueOf(notes), "Notas"));
-        card.add(metric(density, "Subrayados por hora"));
-        card.setMaximumSize(new Dimension(Integer.MAX_VALUE, 82));
-        card.setAlignmentX(LEFT_ALIGNMENT);
-        return card;
+        List<MetricValue> values = new ArrayList<>();
+        values.add(new MetricValue(
+                formatTime(book.getSecondsRead()), "Tiempo leído"));
+        if (book.isInProgress() && book.getRestOfBookEstimate() > 0) {
+            values.add(new MetricValue(
+                    formatTime(book.getRestOfBookEstimate()),
+                    "Tiempo restante estimado"));
+        }
+        values.add(new MetricValue(
+                String.valueOf(highlights.size()), "Subrayados"));
+        values.add(new MetricValue(String.valueOf(notes), "Notas"));
+        values.add(new MetricValue(density, "Subrayados por hora"));
+        addDate(values, book.getDateLastRead(), "Última lectura");
+        addDate(values, book.getLastTimeStartedReading(),
+                "Último inicio registrado");
+        addDate(values, book.getLastTimeFinishedReading(), "Finalización");
+
+        highlights.stream()
+                .map(Bookmark::getDateCreated)
+                .filter(this::hasText)
+                .min(String::compareTo)
+                .map(this::formatDate)
+                .ifPresent(date -> values.add(
+                        new MetricValue(date, "Primer subrayado")));
+        highlights.stream()
+                .map(Bookmark::getDateCreated)
+                .filter(this::hasText)
+                .max(String::compareTo)
+                .map(this::formatDate)
+                .ifPresent(date -> values.add(
+                        new MetricValue(date, "Último subrayado")));
+        return values;
+    }
+
+    private void addDate(List<MetricValue> values,
+            String date, String caption) {
+        if (hasText(date)) {
+            values.add(new MetricValue(formatDate(date), caption));
+        }
+    }
+
+    private JLabel createCover(Book book) {
+        JLabel cover = new JLabel();
+        cover.setHorizontalAlignment(SwingConstants.CENTER);
+        cover.setVerticalAlignment(SwingConstants.CENTER);
+        cover.setPreferredSize(new Dimension(64, 90));
+        cover.setIcon(IconLoader.loadTinted(
+                "/icons/libro.png", 38, AppTheme.PURPLE));
+
+        new SwingWorker<ImageIcon, Void>() {
+            @Override
+            protected ImageIcon doInBackground() {
+                return coverService.loadCover(book, 64, 90);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    ImageIcon loadedCover = get();
+                    if (loadedCover != null) {
+                        cover.setIcon(loadedCover);
+                    }
+                } catch (Exception ignored) {
+                    // Se conserva el icono genérico.
+                }
+            }
+        }.execute();
+        return cover;
     }
 
     private JPanel metric(String value, String caption) {
         JPanel panel = verticalPanel();
-        panel.add(label(value, 16, Font.BOLD, AppTheme.TEXT));
-        panel.add(Box.createVerticalStrut(3));
+        panel.add(label(value, 15, Font.BOLD, AppTheme.TEXT));
+        panel.add(Box.createVerticalStrut(2));
         panel.add(label(caption, 11, Font.PLAIN, AppTheme.MUTED_TEXT));
         return panel;
     }
@@ -137,8 +199,7 @@ public class BookDetailPanel extends JPanel {
         return panel;
     }
 
-    private JLabel label(String text, int size, int style,
-            java.awt.Color color) {
+    private JLabel label(String text, int size, int style, Color color) {
         JLabel result = new JLabel(text);
         result.setFont(AppTheme.font(style, size));
         result.setForeground(color);
@@ -166,7 +227,17 @@ public class BookDetailPanel extends JPanel {
         return (seconds / 3600) + " h " + ((seconds % 3600) / 60) + " min";
     }
 
+    private String formatDate(String value) {
+        return value.length() >= 10 ? value.substring(0, 10) : value;
+    }
+
+    private boolean hasText(String value) {
+        return value != null && !value.isBlank();
+    }
+
     private String fallback(String value, String alternative) {
         return value == null || value.isBlank() ? alternative : value;
     }
+
+    private record MetricValue(String value, String caption) { }
 }

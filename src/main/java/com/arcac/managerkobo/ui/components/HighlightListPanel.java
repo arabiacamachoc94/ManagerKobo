@@ -1,6 +1,8 @@
 package com.arcac.managerkobo.ui.components;
 
+import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.service.BookCoverService;
 import com.arcac.managerkobo.service.HighlightExportService;
 import com.arcac.managerkobo.service.HighlightExportService.ExportFormat;
 import com.arcac.managerkobo.ui.components.HighlightListItem.BookGroup;
@@ -22,6 +24,7 @@ import java.awt.event.MouseEvent;
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashSet;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
@@ -47,16 +50,25 @@ import javax.swing.JMenuItem;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
+import javax.swing.ImageIcon;
+import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
 
 /** Lista plana o agrupada por libro, con búsqueda y grupos desplegables. */
 public class HighlightListPanel extends JPanel {
+    private static final int LARGE_GROUP_THRESHOLD = 40;
 
     private final List<Bookmark> allHighlights;
     private final boolean groupByBook;
+    private final Map<String, Book> booksByContentId;
+    private final Map<String, ImageIcon> coverIcons = new HashMap<>();
+    private final Set<String> resolvedCoverIds = new HashSet<>();
+    private final BookCoverService coverService = new BookCoverService();
     private final Set<String> expandedGroupIds = new HashSet<>();
+    private final Set<String> loadingGroupIds = new HashSet<>();
     private final Set<String> selectedHighlightIds = new HashSet<>();
     private final DefaultListModel<HighlightListItem> listModel =
             new DefaultListModel<>();
@@ -72,8 +84,19 @@ public class HighlightListPanel extends JPanel {
     private JPanel toolbar;
 
     public HighlightListPanel(List<Bookmark> highlights, boolean groupByBook) {
+        this(highlights, groupByBook, List.of());
+    }
+
+    public HighlightListPanel(List<Bookmark> highlights, boolean groupByBook,
+            List<Book> books) {
         this.allHighlights = highlights == null ? List.of() : new ArrayList<>(highlights);
         this.groupByBook = groupByBook;
+        this.booksByContentId = books == null ? Map.of() : books.stream()
+                .filter(book -> book.getContentId() != null)
+                .collect(Collectors.toMap(
+                        Book::getContentId,
+                        book -> book,
+                        (first, duplicate) -> first));
         setLayout(new BorderLayout(0, 14));
         setOpaque(false);
         add(createToolbar(), BorderLayout.NORTH);
@@ -258,6 +281,9 @@ public class HighlightListPanel extends JPanel {
         }
         HighlightListItem item = listModel.get(index);
         if (item instanceof BookGroup group) {
+            if (group.loading()) {
+                return;
+            }
             int relativeX = point.x - bounds.x;
             boolean arrowClicked = selectionMode
                     ? relativeX >= 40 && relativeX <= 82
@@ -265,10 +291,15 @@ public class HighlightListPanel extends JPanel {
             if (selectionMode && !arrowClicked) {
                 toggleBookSelection(group.groupId());
             } else {
-                if (!expandedGroupIds.add(group.groupId())) {
+                if (group.expanded()) {
                     expandedGroupIds.remove(group.groupId());
+                    refresh(false);
+                } else if (group.highlightCount() >= LARGE_GROUP_THRESHOLD) {
+                    expandLargeGroup(group.groupId());
+                } else {
+                    expandedGroupIds.add(group.groupId());
+                    refresh(false);
                 }
-                refresh(false);
             }
         } else if (selectionMode && item instanceof Highlight highlight) {
             String id = selectionId(highlight.bookmark());
@@ -489,7 +520,10 @@ public class HighlightListPanel extends JPanel {
                                             selectionId(mark)))
                                     .count(),
                             selectionMode,
-                            expanded));
+                            expanded,
+                            loadingGroupIds.contains(entry.getKey()),
+                            coverIcons.get(entry.getKey())));
+                    requestCover(entry.getKey());
                     if (expanded) {
                         entry.getValue().forEach(mark ->
                                 listModel.addElement(new Highlight(
@@ -499,6 +533,46 @@ public class HighlightListPanel extends JPanel {
                                         selectedHighlightIds.contains(selectionId(mark)))));
                     }
                 });
+    }
+
+    private void expandLargeGroup(String groupId) {
+        loadingGroupIds.add(groupId);
+        refresh(false);
+
+        Timer deferredExpansion = new Timer(90, event -> {
+            loadingGroupIds.remove(groupId);
+            expandedGroupIds.add(groupId);
+            refresh(false);
+        });
+        deferredExpansion.setRepeats(false);
+        deferredExpansion.start();
+    }
+
+    private void requestCover(String groupId) {
+        Book book = booksByContentId.get(groupId);
+        if (book == null || !resolvedCoverIds.add(groupId)) {
+            return;
+        }
+
+        new SwingWorker<ImageIcon, Void>() {
+            @Override
+            protected ImageIcon doInBackground() {
+                return coverService.loadCover(book, 34, 42);
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    ImageIcon loadedCover = get();
+                    if (loadedCover != null) {
+                        coverIcons.put(groupId, loadedCover);
+                        refresh(false);
+                    }
+                } catch (Exception ignored) {
+                    // El grupo continúa siendo utilizable sin portada.
+                }
+            }
+        }.execute();
     }
 
     private int countGroups(List<Bookmark> highlights) {

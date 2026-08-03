@@ -2,6 +2,7 @@ package com.arcac.managerkobo.database;
 
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.model.LookedUpWord;
 import java.sql.Connection;
 import java.sql.PreparedStatement;
 import java.sql.ResultSet;
@@ -25,7 +26,9 @@ public class KoboDAO {
                        COALESCE(RestOfBookEstimate, 0) AS RestOfBookEstimate,
                        COALESCE(CurrentChapterEstimate, 0) AS CurrentChapterEstimate
                 FROM content
-                WHERE ContentType = 6 AND Title IS NOT NULL
+                WHERE ContentType = 6
+                  AND Title IS NOT NULL
+                  AND LOWER(COALESCE(IsDownloaded, 'false')) = 'true'
                 ORDER BY Title COLLATE NOCASE
                 """;
 
@@ -68,6 +71,38 @@ public class KoboDAO {
             throw new KoboDataException("No se pudieron obtener los subrayados", exception);
         }
         return highlights;
+    }
+
+
+    public List<LookedUpWord> getLookedUpWords() {
+        String sql = """
+                SELECT words.Text, words.VolumeId, words.DictSuffix,
+                       words.DateCreated, book.Title AS BookTitle,
+                       book.Attribution AS BookAuthor
+                FROM WordList words
+                LEFT JOIN content book ON book.ContentID = words.VolumeId
+                WHERE words.Text IS NOT NULL
+                  AND TRIM(words.Text) <> ''
+                ORDER BY words.DateCreated DESC
+                """;
+
+        List<LookedUpWord> words = new ArrayList<>();
+        try (PreparedStatement statement = connection().prepareStatement(sql);
+             ResultSet rs = statement.executeQuery()) {
+            while (rs.next()) {
+                words.add(new LookedUpWord(
+                        rs.getString("Text"),
+                        rs.getString("VolumeId"),
+                        rs.getString("DictSuffix"),
+                        rs.getString("DateCreated"),
+                        rs.getString("BookTitle"),
+                        rs.getString("BookAuthor")));
+            }
+        } catch (SQLException exception) {
+            throw new KoboDataException(
+                    "No se pudieron obtener las palabras consultadas", exception);
+        }
+        return words;
     }
 
     private Connection connection() {

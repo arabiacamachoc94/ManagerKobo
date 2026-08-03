@@ -28,7 +28,11 @@ public record ReadingStatistics(
         Map<Book, Integer> highlightsByBook,
         Map<Book, Double> highlightDensityByBook,
         Map<String, Integer> booksByLanguage,
-        List<Book> inProgressBooks
+        List<Book> inProgressBooks,
+        Map<String, Integer> highlightsByMonth,
+        Map<String, Integer> notesByMonth,
+        Map<String, Integer> wordsByMonth,
+        Map<String, Integer> finishedBooksByMonth
 ) {
     public ReadingStatistics {
         readingSecondsByAuthor = Collections.unmodifiableMap(
@@ -43,6 +47,14 @@ public record ReadingStatistics(
         booksByLanguage = Collections.unmodifiableMap(
                 new LinkedHashMap<>(booksByLanguage));
         inProgressBooks = List.copyOf(inProgressBooks);
+        highlightsByMonth = Collections.unmodifiableMap(
+                new LinkedHashMap<>(highlightsByMonth));
+        notesByMonth = Collections.unmodifiableMap(
+                new LinkedHashMap<>(notesByMonth));
+        wordsByMonth = Collections.unmodifiableMap(
+                new LinkedHashMap<>(wordsByMonth));
+        finishedBooksByMonth = Collections.unmodifiableMap(
+                new LinkedHashMap<>(finishedBooksByMonth));
     }
 
     public long totalMinutesRead() { return totalSecondsRead / 60; }
