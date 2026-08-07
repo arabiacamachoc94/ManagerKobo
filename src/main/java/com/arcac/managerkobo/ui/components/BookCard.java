@@ -3,6 +3,7 @@ package com.arcac.managerkobo.ui.components;
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.service.BookCoverService;
 import com.arcac.managerkobo.ui.theme.AppTheme;
+import com.arcac.managerkobo.ui.util.I18n;
 import com.arcac.managerkobo.ui.util.IconLoader;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -15,13 +16,12 @@ import java.awt.event.MouseEvent;
 import java.util.function.Consumer;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
-import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
 /** Tarjeta visual y pulsable de un libro. */
 public class BookCard extends RoundedPanel {
@@ -67,23 +67,9 @@ public class BookCard extends RoundedPanel {
                 "/icons/libro.png", 46, AppTheme.PURPLE));
         holder.add(cover, BorderLayout.CENTER);
 
-        new SwingWorker<ImageIcon, Void>() {
-            @Override
-            protected ImageIcon doInBackground() {
-                return COVER_SERVICE.loadCover(
-                        book, coverWidth, coverHeight);
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    ImageIcon image = get();
-                    if (image != null) cover.setIcon(image);
-                } catch (Exception ignored) {
-                    // Se mantiene el icono genérico.
-                }
-            }
-        }.execute();
+        COVER_SERVICE.loadAsync(book, coverWidth, coverHeight, image -> {
+            if (image != null) cover.setIcon(image);
+        });
         return holder;
     }
 
@@ -95,16 +81,16 @@ public class BookCard extends RoundedPanel {
         information.setBorder(new EmptyBorder(compact ? 7 : 10, 1, 0, 1));
 
         JLabel title = label(twoLineText(
-                        fallback(book.getTitle(), "Sin título"), contentWidth),
+                        textOr(book.getTitle(), "Sin título"), contentWidth),
                 compact ? 11 : 13, Font.BOLD, AppTheme.TEXT);
-        title.setToolTipText(fallback(book.getTitle(), "Sin título"));
+        title.setToolTipText(textOr(book.getTitle(), "Sin título"));
         title.setAlignmentX(LEFT_ALIGNMENT);
         title.setMaximumSize(new Dimension(
                 Integer.MAX_VALUE, compact ? 31 : 38));
         information.add(title);
         information.add(Box.createVerticalStrut(3));
 
-        JLabel author = label(fallback(book.getAuthor(), "Autor desconocido"),
+        JLabel author = label(textOr(book.getAuthor(), "Autor desconocido"),
                 compact ? 9 : 11, Font.PLAIN, AppTheme.MUTED_TEXT);
         author.setToolTipText(author.getText());
         author.setAlignmentX(LEFT_ALIGNMENT);
@@ -160,9 +146,9 @@ public class BookCard extends RoundedPanel {
     }
 
     private String statusOf(Book book) {
-        if (book.isFinished()) return "Terminado";
-        if (book.isInProgress()) return "Leyendo";
-        return "Sin empezar";
+        if (book.isFinished()) return I18n.text("Terminado");
+        if (book.isInProgress()) return I18n.text("Leyendo");
+        return I18n.text("Sin empezar");
     }
 
     private Color statusColor(Book book) {
@@ -178,7 +164,4 @@ public class BookCard extends RoundedPanel {
                 + "px'>" + escaped + "</div></html>";
     }
 
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
-    }
 }

@@ -6,6 +6,7 @@ import com.arcac.managerkobo.ui.components.RoundedPanel;
 import com.arcac.managerkobo.ui.components.StatisticsBarChartPanel;
 import com.arcac.managerkobo.ui.components.StatisticsBarChartPanel.BarValue;
 import com.arcac.managerkobo.ui.theme.AppTheme;
+import com.arcac.managerkobo.ui.util.I18n;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -22,6 +23,8 @@ import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.Scrollable;
 import javax.swing.border.EmptyBorder;
+import static com.arcac.managerkobo.util.ReadingFormat.duration;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
 /** Primera versión de la pantalla interactiva de estadísticas avanzadas. */
 public class AdvancedStatisticsPanel extends JPanel {
@@ -30,8 +33,6 @@ public class AdvancedStatisticsPanel extends JPanel {
     private final ReadingStatistics statistics;
     private final JComboBox<ChartType> chartSelector = new JComboBox<>(ChartType.values());
     private final StatisticsBarChartPanel chart = new StatisticsBarChartPanel();
-    private final JLabel summaryTitle = new JLabel();
-    private final JLabel summaryDetail = new JLabel();
 
     public AdvancedStatisticsPanel(ReadingStatistics statistics) {
         this(statistics, true);
@@ -49,7 +50,10 @@ public class AdvancedStatisticsPanel extends JPanel {
             setOpaque(false);
             add(createBody(false), BorderLayout.CENTER);
         }
-        chartSelector.addActionListener(event -> updateChart());
+        chartSelector.addActionListener(event -> {
+            updateChart();
+            I18n.translateTree(this);
+        });
         updateChart();
     }
 
@@ -140,17 +144,9 @@ public class AdvancedStatisticsPanel extends JPanel {
         List<BarValue> values = statistics.readingSecondsByAuthor().entrySet().stream()
                 .limit(MAX_VISIBLE_VALUES)
                 .map(entry -> new BarValue(
-                        entry.getKey(), entry.getValue(), formatTime(entry.getValue())))
+                        entry.getKey(), entry.getValue(), duration(entry.getValue())))
                 .toList();
         chart.setValues(values, AppTheme.BLUE);
-
-        Map.Entry<String, Long> first = statistics.readingSecondsByAuthor()
-                .entrySet().stream().findFirst().orElse(null);
-        summaryTitle.setText(first == null
-                ? "Sin datos de lectura por autor"
-                : "Autor más leído: " + first.getKey());
-        summaryDetail.setText(first == null ? ""
-                : formatTime(first.getValue()) + " de lectura acumulada");
     }
 
     private void showHighlightsByAuthor() {
@@ -161,55 +157,28 @@ public class AdvancedStatisticsPanel extends JPanel {
                         entry.getValue() + " subrayados"))
                 .toList();
         chart.setValues(values, AppTheme.ORANGE);
-
-        Map.Entry<String, Integer> first = statistics.highlightsByAuthor()
-                .entrySet().stream().findFirst().orElse(null);
-        summaryTitle.setText(first == null
-                ? "Sin subrayados asociados a autores"
-                : "Autor más subrayado: " + first.getKey());
-        summaryDetail.setText(first == null ? ""
-                : first.getValue() + " subrayados guardados");
     }
 
     private void showReadingByBook() {
         List<BarValue> values = statistics.booksByReadingTime().stream()
                 .limit(MAX_VISIBLE_VALUES)
                 .map(book -> new BarValue(
-                        fallback(book.getTitle(), "Sin título"),
+                        textOr(book.getTitle(), "Sin título"),
                         book.getSecondsRead(),
-                        formatTime(book.getSecondsRead())))
+                        duration(book.getSecondsRead())))
                 .toList();
         chart.setValues(values, AppTheme.PURPLE);
-
-        summaryTitle.setText("Media por libro empezado: "
-                + formatTime(statistics.averageSecondsPerStartedBook()));
-        summaryDetail.setText("Media por libro terminado: "
-                + formatTime(statistics.averageSecondsPerFinishedBook()));
     }
 
     private void showHighlightsByBook() {
         List<BarValue> values = statistics.highlightsByBook().entrySet().stream()
                 .limit(MAX_VISIBLE_VALUES)
                 .map(entry -> new BarValue(
-                        fallback(entry.getKey().getTitle(), "Sin título"),
+                        textOr(entry.getKey().getTitle(), "Sin título"),
                         entry.getValue(),
                         entry.getValue() + " subrayados"))
                 .toList();
         chart.setValues(values, AppTheme.ORANGE);
-
-        Map.Entry<Book, Integer> first = statistics.highlightsByBook()
-                .entrySet().stream().findFirst().orElse(null);
-        summaryTitle.setText(first == null
-                ? "No hay subrayados asociados a libros"
-                : "Libro más subrayado: "
-                        + fallback(first.getKey().getTitle(), "Sin título"));
-        int startedBooks = statistics.finishedBooks() + statistics.readingBooks();
-        double average = startedBooks == 0
-                ? 0
-                : statistics.totalHighlights() / (double) startedBooks;
-        summaryDetail.setText(first == null ? ""
-                : first.getValue() + " subrayados · Media: "
-                        + String.format("%.1f por libro empezado", average));
     }
 
     private void showHighlightDensity() {
@@ -217,23 +186,11 @@ public class AdvancedStatisticsPanel extends JPanel {
                 .entrySet().stream()
                 .limit(MAX_VISIBLE_VALUES)
                 .map(entry -> new BarValue(
-                        fallback(entry.getKey().getTitle(), "Sin título"),
+                        textOr(entry.getKey().getTitle(), "Sin título"),
                         entry.getValue(),
                         String.format("%.1f / h", entry.getValue())))
                 .toList();
         chart.setValues(values, AppTheme.GREEN);
-
-        Map.Entry<Book, Double> first = statistics.highlightDensityByBook()
-                .entrySet().stream().findFirst().orElse(null);
-        summaryTitle.setText(first == null
-                ? "No hay datos suficientes para calcular la densidad"
-                : "Mayor densidad: "
-                        + fallback(first.getKey().getTitle(), "Sin título"));
-        summaryDetail.setText(first == null
-                ? "Se requieren al menos 30 minutos y 2 subrayados por libro."
-                : statistics.highlightsByBook().getOrDefault(first.getKey(), 0)
-                        + " subrayados en "
-                        + formatTime(first.getKey().getSecondsRead()));
     }
 
     private void showBooksByLanguage() {
@@ -241,38 +198,23 @@ public class AdvancedStatisticsPanel extends JPanel {
         List<BarValue> values = statistics.booksByLanguage().entrySet().stream()
                 .limit(MAX_VISIBLE_VALUES)
                 .map(entry -> new BarValue(
-                        entry.getKey(),
+                        I18n.text(entry.getKey()),
                         entry.getValue(),
                         entry.getValue() + " · "
                                 + Math.round(entry.getValue() * 100.0 / total) + "%"))
                 .toList();
         chart.setValues(values, AppTheme.BLUE, total);
-
-        Map.Entry<String, Integer> first = statistics.booksByLanguage()
-                .entrySet().stream().findFirst().orElse(null);
-        summaryTitle.setText(first == null
-                ? "No hay información de idiomas"
-                : "Idioma principal: " + first.getKey());
-        summaryDetail.setText(first == null ? ""
-                : first.getValue() + " de " + statistics.totalBooks() + " libros");
     }
 
     private void showReadingProgress() {
         List<BarValue> values = statistics.inProgressBooks().stream()
                 .limit(MAX_VISIBLE_VALUES)
                 .map(book -> new BarValue(
-                        fallback(book.getTitle(), "Sin título"),
+                        textOr(book.getTitle(), "Sin título"),
                         book.getPercentRead(),
                         book.getPercentRead() + "%"))
                 .toList();
         chart.setValues(values, AppTheme.PURPLE, 100);
-        summaryTitle.setText(statistics.inProgressBooks().size()
-                + " libros en progreso");
-        double average = statistics.inProgressBooks().stream()
-                .mapToInt(Book::getPercentRead)
-                .average().orElse(0);
-        summaryDetail.setText("Progreso medio de las lecturas actuales: "
-                + Math.round(average) + "%");
     }
 
     private void showMonthly(Map<String, Integer> monthlyValues,
@@ -281,9 +223,9 @@ public class AdvancedStatisticsPanel extends JPanel {
         List<BarValue> values = monthlyValues.entrySet().stream()
                 .skip(skip)
                 .map(entry -> new BarValue(
-                        entry.getKey(),
+                        I18n.text(entry.getKey()),
                         entry.getValue(),
-                        entry.getValue() + " " + unit))
+                        entry.getValue() + " " + I18n.text(unit)))
                 .toList();
         chart.setValues(values, color);
     }
@@ -300,16 +242,6 @@ public class AdvancedStatisticsPanel extends JPanel {
         label.setFont(AppTheme.font(style, size));
         label.setForeground(color);
         return label;
-    }
-
-    private String formatTime(long seconds) {
-        long hours = seconds / 3600;
-        long minutes = (seconds % 3600) / 60;
-        return hours + " h " + minutes + " min";
-    }
-
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
     }
 
     private enum ChartType {
@@ -333,7 +265,7 @@ public class AdvancedStatisticsPanel extends JPanel {
 
         @Override
         public String toString() {
-            return label;
+            return I18n.text(label);
         }
     }
 

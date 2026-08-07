@@ -1,9 +1,11 @@
 package com.arcac.managerkobo.ui.table;
 
 import com.arcac.managerkobo.model.LookedUpWord;
+import com.arcac.managerkobo.ui.util.I18n;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 import javax.swing.table.AbstractTableModel;
 
 /** Modelo de tabla con búsqueda para las palabras consultadas. */
@@ -48,17 +50,17 @@ public class WordTableModel extends AbstractTableModel {
 
     @Override
     public String getColumnName(int column) {
-        return COLUMNS[column];
+        return I18n.text(COLUMNS[column]);
     }
 
     @Override
     public Object getValueAt(int row, int column) {
         LookedUpWord word = visibleWords.get(row);
         return switch (column) {
-            case 0 -> fallback(word.text(), "Sin palabra")
+            case 0 -> textOr(word.text(), "Sin palabra")
                     .toUpperCase(Locale.ROOT);
-            case 1 -> fallback(word.bookTitle(), "Libro desconocido");
-            case 2 -> fallback(word.bookAuthor(), "Autor desconocido");
+            case 1 -> textOr(word.bookTitle(), I18n.text("Libro desconocido"));
+            case 2 -> textOr(word.bookAuthor(), I18n.text("Autor desconocido"));
             case 3 -> dictionaryName(word.dictionarySuffix());
             case 4 -> formatDate(word.dateCreated());
             default -> "";
@@ -73,27 +75,24 @@ public class WordTableModel extends AbstractTableModel {
 
     private String dictionaryName(String suffix) {
         if (suffix == null || suffix.isBlank()) {
-            return "Desconocido";
+            return I18n.text("Desconocido");
         }
         return switch (suffix.toLowerCase(Locale.ROOT)) {
-            case "-es" -> "Español";
-            case "-en" -> "Inglés";
-            case "-fr" -> "Francés";
-            case "-de" -> "Alemán";
-            case "-it" -> "Italiano";
-            case "-pt" -> "Portugués";
+            case "-es" -> I18n.text("Español");
+            case "-en" -> I18n.text("Inglés");
+            case "-fr" -> I18n.text("Francés");
+            case "-de" -> I18n.text("Alemán");
+            case "-it" -> I18n.text("Italiano");
+            case "-pt" -> I18n.text("Portugués");
             default -> suffix.replace("-", "").toUpperCase(Locale.ROOT);
         };
     }
 
     private String formatDate(String value) {
         if (value == null || value.isBlank()) {
-            return "Sin fecha";
+            return I18n.text("Sin fecha");
         }
         return value.length() >= 10 ? value.substring(0, 10) : value;
     }
 
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
-    }
 }

@@ -32,7 +32,10 @@ public record ReadingStatistics(
         Map<String, Integer> highlightsByMonth,
         Map<String, Integer> notesByMonth,
         Map<String, Integer> wordsByMonth,
-        Map<String, Integer> finishedBooksByMonth
+        Map<String, Integer> finishedBooksByMonth,
+        int finishedBooksThisYear,
+        double monthlyBookPace,
+        int annualBookProjection
 ) {
     public ReadingStatistics {
         readingSecondsByAuthor = Collections.unmodifiableMap(

@@ -2,6 +2,7 @@ package com.arcac.managerkobo.ui.table;
 
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.ui.util.I18n;
 import java.util.ArrayList;
 import java.util.EnumSet;
 import java.util.HashMap;
@@ -9,6 +10,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import javax.swing.table.AbstractTableModel;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
 /** Adapta una lista de Book al formato de filas y columnas de JTable. */
 public class BookTableModel extends AbstractTableModel {
@@ -81,7 +83,7 @@ public class BookTableModel extends AbstractTableModel {
 
     @Override public int getRowCount() { return visibleBooks.size(); }
     @Override public int getColumnCount() { return columns.length; }
-    @Override public String getColumnName(int column) { return columns[column]; }
+    @Override public String getColumnName(int column) { return I18n.text(columns[column]); }
 
     @Override
     public Class<?> getColumnClass(int column) {
@@ -96,8 +98,8 @@ public class BookTableModel extends AbstractTableModel {
     public Object getValueAt(int row, int column) {
         Book book = visibleBooks.get(row);
         return switch (column) {
-            case 0 -> fallback(book.getTitle(), "Sin título");
-            case 1 -> fallback(book.getAuthor(), "Autor desconocido");
+            case 0 -> textOr(book.getTitle(), "Sin título");
+            case 1 -> textOr(book.getAuthor(), "Autor desconocido");
             case 2 -> book.getPercentRead();
             case 3 -> statusOf(book);
             case 4 -> book.getSecondsRead();
@@ -107,13 +109,10 @@ public class BookTableModel extends AbstractTableModel {
     }
 
     private String statusOf(Book book) {
-        if (book.isFinished()) return "Terminado";
-        if (book.isInProgress()) return "Leyendo";
-        return "Sin empezar";
+        if (book.isFinished()) return I18n.text("Terminado");
+        if (book.isInProgress()) return I18n.text("Leyendo");
+        return I18n.text("Sin empezar");
     }
 
     private static String safe(String value) { return value == null ? "" : value; }
-    private static String fallback(String value, String fallback) {
-        return value == null || value.isBlank() ? fallback : value;
-    }
 }

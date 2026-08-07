@@ -2,12 +2,15 @@ package com.arcac.managerkobo.ui.components;
 
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
+import com.arcac.managerkobo.ai.HighlightAiService.Operation;
 import com.arcac.managerkobo.service.BookCoverService;
 import com.arcac.managerkobo.service.HighlightExportService;
 import com.arcac.managerkobo.service.HighlightExportService.ExportFormat;
 import com.arcac.managerkobo.ui.components.HighlightListItem.BookGroup;
 import com.arcac.managerkobo.ui.components.HighlightListItem.Highlight;
+import com.arcac.managerkobo.ui.dialogs.AiSummaryDialog;
 import com.arcac.managerkobo.ui.theme.AppTheme;
+import com.arcac.managerkobo.ui.util.I18n;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -50,12 +53,12 @@ import javax.swing.JMenuItem;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
-import javax.swing.SwingWorker;
 import javax.swing.ImageIcon;
 import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
 /** Lista plana o agrupada por libro, con búsqueda y grupos desplegables. */
 public class HighlightListPanel extends JPanel {
@@ -126,7 +129,7 @@ public class HighlightListPanel extends JPanel {
     }
 
     private void configureToolbarLayout(int width) {
-        // Con cuatro acciones, una sola fila necesita bastante anchura.
+        // Con varias acciones, una sola fila necesita bastante anchura.
         // Cambiamos antes al diseño vertical para no comprimir ni desbordar la lista.
         boolean compact = width < 900;
         Object previousMode = toolbar.getClientProperty("compactLayout");
@@ -166,10 +169,10 @@ public class HighlightListPanel extends JPanel {
         JPanel actions = new JPanel();
         actions.setOpaque(false);
         if (compact) {
-            int rows = selectionMode ? 2 : 1;
+            int rows = selectionMode ? 3 : 1;
             actions.setLayout(new GridLayout(rows, 2, 6, 6));
             actions.setMaximumSize(new Dimension(
-                    Integer.MAX_VALUE, selectionMode ? 82 : 40));
+                    Integer.MAX_VALUE, selectionMode ? 124 : 40));
         }
 
         if (selectionMode) {
@@ -178,7 +181,7 @@ public class HighlightListPanel extends JPanel {
             actions.add(cancel);
 
             JButton clear = actionButton("Limpiar", AppTheme.PANEL_ALT);
-            clear.setToolTipText("Desmarcar todos los subrayados");
+            clear.setToolTipText(I18n.text("Desmarcar todos los subrayados"));
             clear.addActionListener(event -> {
                 selectedHighlightIds.clear();
                 refresh(false);
@@ -190,9 +193,16 @@ public class HighlightListPanel extends JPanel {
             actions.add(copy);
 
             JButton export = actionButton("Exportar", AppTheme.GREEN);
-            export.setToolTipText("Exportar los subrayados seleccionados");
+            export.setToolTipText(I18n.text(
+                    "Exportar los subrayados seleccionados"));
             export.addActionListener(event -> exportHighlights(selectedHighlights()));
             actions.add(export);
+
+            JButton ai = actionButton(I18n.text("✨ Acciones IA ▾"), AppTheme.PURPLE);
+            ai.setToolTipText(I18n.text("Aplicar una acción inteligente a la selección"));
+            JPopupMenu aiMenu = createAiMenu();
+            ai.addActionListener(event -> aiMenu.show(ai, 0, ai.getHeight()));
+            actions.add(ai);
         } else {
             JButton select = actionButton("Seleccionar", AppTheme.PURPLE);
             select.addActionListener(event -> enterSelectionMode());
@@ -207,8 +217,51 @@ public class HighlightListPanel extends JPanel {
         return actions;
     }
 
+    private JPopupMenu createAiMenu() {
+        JPopupMenu menu = new JPopupMenu();
+        JMenuItem summary = new JMenuItem(I18n.text("Resumir"));
+        summary.addActionListener(event -> openAiAction(Operation.SUMMARY, null));
+        menu.add(summary);
+
+        JMenuItem ideas = new JMenuItem(I18n.text("Ideas clave"));
+        ideas.addActionListener(event -> openAiAction(Operation.KEY_IDEAS, null));
+        menu.add(ideas);
+
+        JMenuItem question = new JMenuItem(I18n.text("Preguntar..."));
+        question.addActionListener(event -> askQuestion());
+        menu.add(question);
+        return menu;
+    }
+
+    private void askQuestion() {
+        if (selectedHighlights().isEmpty()) {
+            showWarning("Selecciona uno o varios subrayados para usar Gemini.");
+            return;
+        }
+        String question = JOptionPane.showInputDialog(this,
+                I18n.text("¿Qué quieres preguntar sobre los subrayados seleccionados?"),
+                I18n.text("Preguntar a Gemini"), JOptionPane.QUESTION_MESSAGE);
+        if (question != null && !question.isBlank()) {
+            openAiAction(Operation.QUESTION, question.strip());
+        }
+    }
+
+    private void openAiAction(Operation operation, String question) {
+        List<Bookmark> selected = selectedHighlights();
+        if (selected.isEmpty()) {
+            showWarning("Selecciona uno o varios subrayados para usar Gemini.");
+            return;
+        }
+        AiSummaryDialog dialog = new AiSummaryDialog(
+                SwingUtilities.getWindowAncestor(this), selected,
+                operation, question);
+        dialog.setVisible(true);
+    }
+
     private JButton actionButton(String text, Color background) {
-        JButton button = new JButton(text);
+        JButton button = new RoundedButton(I18n.text(text));
+        button.putClientProperty("JButton.buttonType", "roundRect");
+        button.putClientProperty("JComponent.roundRect", true);
         button.setFont(AppTheme.font(Font.BOLD, 12));
         button.setForeground(Color.WHITE);
         button.setBackground(background);
@@ -219,11 +272,11 @@ public class HighlightListPanel extends JPanel {
 
     private JPopupMenu createExportMenu() {
         JPopupMenu menu = new JPopupMenu();
-        JMenuItem visible = new JMenuItem("Exportar resultados visibles");
+        JMenuItem visible = new JMenuItem(I18n.text("Exportar resultados visibles"));
         visible.addActionListener(event -> exportHighlights(currentVisibleHighlights));
         menu.add(visible);
 
-        JMenuItem all = new JMenuItem("Exportar todos");
+        JMenuItem all = new JMenuItem(I18n.text("Exportar todos"));
         all.addActionListener(event -> exportHighlights(allHighlights));
         menu.add(all);
         return menu;
@@ -340,7 +393,7 @@ public class HighlightListPanel extends JPanel {
         if (selected > 0) {
             text += " · " + selected + " seleccionados";
         }
-        resultCount.setText(text);
+        resultCount.setText(I18n.text(text));
     }
 
     private List<Bookmark> selectedHighlights() {
@@ -403,12 +456,12 @@ public class HighlightListPanel extends JPanel {
 
     private String copyText(Bookmark mark) {
         StringBuilder text = new StringBuilder();
-        text.append(fallback(mark.getBookTitle(), "Libro desconocido"));
+        text.append(textOr(mark.getBookTitle(), "Libro desconocido"));
         if (mark.getBookAuthor() != null && !mark.getBookAuthor().isBlank()) {
             text.append(" — ").append(mark.getBookAuthor());
         }
         text.append(System.lineSeparator())
-                .append(fallback(mark.getText(), ""));
+                .append(textOr(mark.getText(), ""));
         if (mark.hasUserNote()) {
             text.append(System.lineSeparator())
                     .append("Nota: ").append(mark.getUserNote());
@@ -503,7 +556,7 @@ public class HighlightListPanel extends JPanel {
                         Collectors.toList()));
         groups.entrySet().stream()
                 .sorted(Comparator.comparing(
-                        entry -> fallback(entry.getValue().get(0).getBookTitle(),
+                        entry -> textOr(entry.getValue().get(0).getBookTitle(),
                                 "Libro desconocido"),
                         String.CASE_INSENSITIVE_ORDER))
                 .forEach(entry -> {
@@ -512,8 +565,8 @@ public class HighlightListPanel extends JPanel {
                             || expandedGroupIds.contains(entry.getKey());
                     listModel.addElement(new BookGroup(
                             entry.getKey(),
-                            fallback(first.getBookTitle(), "Libro desconocido"),
-                            fallback(first.getBookAuthor(), "Autor desconocido"),
+                            textOr(first.getBookTitle(), "Libro desconocido"),
+                            textOr(first.getBookAuthor(), "Autor desconocido"),
                             entry.getValue().size(),
                             (int) entry.getValue().stream()
                                     .filter(mark -> selectedHighlightIds.contains(
@@ -554,25 +607,12 @@ public class HighlightListPanel extends JPanel {
             return;
         }
 
-        new SwingWorker<ImageIcon, Void>() {
-            @Override
-            protected ImageIcon doInBackground() {
-                return coverService.loadCover(book, 34, 42);
+        coverService.loadAsync(book, 34, 42, loadedCover -> {
+            if (loadedCover != null) {
+                coverIcons.put(groupId, loadedCover);
+                refresh(false);
             }
-
-            @Override
-            protected void done() {
-                try {
-                    ImageIcon loadedCover = get();
-                    if (loadedCover != null) {
-                        coverIcons.put(groupId, loadedCover);
-                        refresh(false);
-                    }
-                } catch (Exception ignored) {
-                    // El grupo continúa siendo utilizable sin portada.
-                }
-            }
-        }.execute();
+        });
     }
 
     private int countGroups(List<Bookmark> highlights) {
@@ -583,16 +623,16 @@ public class HighlightListPanel extends JPanel {
         if (mark.getVolumeId() != null && !mark.getVolumeId().isBlank()) {
             return mark.getVolumeId();
         }
-        return "unknown:" + fallback(mark.getBookTitle(), "Libro desconocido");
+        return "unknown:" + textOr(mark.getBookTitle(), "Libro desconocido");
     }
 
     private String selectionId(Bookmark mark) {
         if (mark.getBookmarkId() != null && !mark.getBookmarkId().isBlank()) {
             return mark.getBookmarkId();
         }
-        return groupId(mark) + ":" + fallback(mark.getContentId(), "")
-                + ":" + fallback(mark.getDateCreated(), "")
-                + ":" + fallback(mark.getText(), "").hashCode();
+        return groupId(mark) + ":" + textOr(mark.getContentId(), "")
+                + ":" + textOr(mark.getDateCreated(), "")
+                + ":" + textOr(mark.getText(), "").hashCode();
     }
 
     private boolean contains(String value, String query) {
@@ -601,10 +641,6 @@ public class HighlightListPanel extends JPanel {
 
     private String normalized(String value) {
         return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
-    }
-
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
     }
 
     /** Evita que el ancho preferido de los renderers ensanche la lista. */

@@ -6,6 +6,8 @@ import com.arcac.managerkobo.ui.components.BookCard;
 import com.arcac.managerkobo.ui.table.BookTableModel;
 import com.arcac.managerkobo.ui.table.BookTableModel.BookFilter;
 import com.arcac.managerkobo.ui.theme.AppTheme;
+import com.arcac.managerkobo.ui.components.RoundedButton;
+import com.arcac.managerkobo.ui.util.I18n;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -99,7 +101,7 @@ public class LibraryPanel extends JPanel {
             @Override public void changedUpdate(DocumentEvent event) { update(); }
         });
 
-        JButton filter = new JButton("Filtrar ▾");
+        JButton filter = new RoundedButton("Filtrar ▾");
         filter.setBackground(AppTheme.PURPLE);
         filter.setForeground(java.awt.Color.WHITE);
         filter.setFont(AppTheme.font(Font.BOLD, 13));
@@ -129,11 +131,11 @@ public class LibraryPanel extends JPanel {
         options.setLayout(new BoxLayout(options, BoxLayout.Y_AXIS));
 
         Map<BookFilter, JCheckBox> checks = new LinkedHashMap<>();
-        checks.put(BookFilter.READING, new JCheckBox("Leyendo"));
-        checks.put(BookFilter.FINISHED, new JCheckBox("Terminados"));
-        checks.put(BookFilter.NOT_STARTED, new JCheckBox("Sin empezar"));
+        checks.put(BookFilter.READING, new JCheckBox(I18n.text("Leyendo")));
+        checks.put(BookFilter.FINISHED, new JCheckBox(I18n.text("Terminados")));
+        checks.put(BookFilter.NOT_STARTED, new JCheckBox(I18n.text("Sin empezar")));
         checks.put(BookFilter.WITH_HIGHLIGHTS,
-                new JCheckBox("Con subrayados"));
+                new JCheckBox(I18n.text("Con subrayados")));
         checks.values().forEach(check -> {
             check.setAlignmentX(LEFT_ALIGNMENT);
             options.add(check);
@@ -146,7 +148,7 @@ public class LibraryPanel extends JPanel {
         clear.addActionListener(event -> {
             checks.values().forEach(check -> check.setSelected(false));
             bookModel.setBookFilters(EnumSet.noneOf(BookFilter.class));
-            filterButton.setText("Filtrar ▾");
+            filterButton.setText(I18n.text("Filtrar ▾"));
             menu.setVisible(false);
         });
         JButton apply = compactFilterButton("✓", "Aplicar filtros");
@@ -157,8 +159,8 @@ public class LibraryPanel extends JPanel {
             });
             bookModel.setBookFilters(selected);
             filterButton.setText(selected.isEmpty()
-                    ? "Filtrar ▾"
-                    : "Filtrar (" + selected.size() + ") ▾");
+                    ? I18n.text("Filtrar ▾")
+                    : I18n.text("Filtrar") + " (" + selected.size() + ") ▾");
             menu.setVisible(false);
         });
         actions.add(clear);
@@ -169,8 +171,8 @@ public class LibraryPanel extends JPanel {
     }
 
     private JButton compactFilterButton(String text, String tooltip) {
-        JButton button = new JButton(text);
-        button.setToolTipText(tooltip);
+        JButton button = new RoundedButton(text);
+        button.setToolTipText(I18n.text(tooltip));
         button.setPreferredSize(new Dimension(34, 30));
         button.setFocusPainted(false);
         return button;
@@ -182,7 +184,7 @@ public class LibraryPanel extends JPanel {
             Book book = bookModel.getBookAt(row);
             if (book != null) grid.add(new BookCard(book, openBookAction));
         }
-        resultCount.setText(bookModel.getRowCount() + " libros");
+        resultCount.setText(I18n.text(bookModel.getRowCount() + " libros"));
         grid.revalidate();
         grid.repaint();
         SwingUtilities.invokeLater(() -> grid.scrollRectToVisible(

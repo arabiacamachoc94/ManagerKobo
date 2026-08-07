@@ -2,6 +2,7 @@ package com.arcac.managerkobo.ui;
 
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.util.IconLoader;
+import com.arcac.managerkobo.ui.util.AppPreferences;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -28,6 +29,7 @@ public class SidebarPanel extends JPanel {
     public static final String LIBRARY = "library";
     public static final String HIGHLIGHTS = "highlights";
     public static final String WORDS = "words";
+    public static final String SETTINGS = "settings";
 
     private final Consumer<String> navigationAction;
     private final List<JButton> buttons = new ArrayList<>();
@@ -64,10 +66,12 @@ public class SidebarPanel extends JPanel {
         JPanel menu = new JPanel();
         menu.setOpaque(false);
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
-        addButton(menu, "/icons/dashboard.png", "Dashboard", DASHBOARD);
-        addButton(menu, "/icons/library.png", "Biblioteca", LIBRARY);
-        addButton(menu, "/icons/lapiz.png", "Subrayados", HIGHLIGHTS);
-        addButton(menu, "/icons/palabras.png", "Palabras", WORDS);
+        boolean english = AppPreferences.isEnglish();
+        addButton(menu, "/icons/dashboard.png", english ? "Overview" : "Resumen", DASHBOARD);
+        addButton(menu, "/icons/library.png", english ? "Library" : "Biblioteca", LIBRARY);
+        addButton(menu, "/icons/lapiz.png", english ? "Highlights" : "Subrayados", HIGHLIGHTS);
+        addButton(menu, "/icons/palabras.png", english ? "Words" : "Palabras", WORDS);
+        addButton(menu, "/icons/settings.png", english ? "Settings" : "Ajustes", SETTINGS);
         return menu;
     }
 
@@ -115,7 +119,8 @@ public class SidebarPanel extends JPanel {
     private void configureSyncButton(Runnable syncAction) {
         syncButton.setIcon(IconLoader.loadTinted(
                 "/icons/actualizar.png", 19, AppTheme.MUTED_TEXT));
-        syncButton.setToolTipText("Sincronizar Kobo");
+        syncButton.setToolTipText(AppPreferences.isEnglish()
+                ? "Sync Kobo" : "Sincronizar Kobo");
         syncButton.setContentAreaFilled(false);
         syncButton.setFocusPainted(false);
         syncButton.setBorderPainted(false);
@@ -138,11 +143,14 @@ public class SidebarPanel extends JPanel {
     public void setSyncing(boolean syncing) {
         syncButton.setEnabled(!syncing);
         syncButton.setToolTipText(syncing
-                ? "Sincronizando..." : "Sincronizar Kobo");
+                ? (AppPreferences.isEnglish() ? "Syncing..." : "Sincronizando...")
+                : (AppPreferences.isEnglish() ? "Sync Kobo" : "Sincronizar Kobo"));
     }
 
     public void setKoboConnected(boolean connected) {
-        connectionStatus.setText(connected ? "●  Kobo conectado" : "●  Modo local");
+        connectionStatus.setText(connected
+                ? (AppPreferences.isEnglish() ? "●  Kobo connected" : "●  Kobo conectado")
+                : (AppPreferences.isEnglish() ? "●  Local mode" : "●  Modo local"));
         connectionStatus.setForeground(connected ? AppTheme.GREEN : AppTheme.MUTED_TEXT);
     }
 

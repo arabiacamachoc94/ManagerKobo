@@ -17,6 +17,7 @@ import javax.swing.JPanel;
 import javax.swing.JScrollPane;
 import javax.swing.JTable;
 import javax.swing.JTextField;
+import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.event.DocumentListener;
@@ -90,6 +91,19 @@ public class WordsPanel extends JPanel {
         table.getTableHeader().setFont(AppTheme.font(Font.BOLD, 13));
         table.getTableHeader().setPreferredSize(new Dimension(0, 46));
         table.getTableHeader().setReorderingAllowed(false);
+        javax.swing.table.TableCellRenderer defaultHeaderRenderer =
+                table.getTableHeader().getDefaultRenderer();
+        table.getTableHeader().setDefaultRenderer((headerTable, value,
+                selected, focused, row, column) -> {
+            java.awt.Component component = defaultHeaderRenderer
+                    .getTableCellRendererComponent(headerTable, value,
+                            selected, focused, row, column);
+            if (component instanceof JLabel label) {
+                label.setHorizontalAlignment(SwingConstants.LEFT);
+                label.setBorder(new EmptyBorder(0, 14, 0, 14));
+            }
+            return component;
+        });
 
         DefaultTableCellRenderer renderer = new DefaultTableCellRenderer();
         renderer.setBorder(new EmptyBorder(8, 14, 8, 14));

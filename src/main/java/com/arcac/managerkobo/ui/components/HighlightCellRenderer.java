@@ -14,6 +14,7 @@ import javax.swing.JPanel;
 import javax.swing.JTextArea;
 import javax.swing.ListCellRenderer;
 import javax.swing.border.EmptyBorder;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
 /**
  * Dibuja un subrayado como una tarjeta reutilizable dentro de una JList.Solo
@@ -98,7 +99,7 @@ public class HighlightCellRenderer extends JPanel
 
         String text = mark.getText() == null ? "" : mark.getText();
         if (showBookTitle) {
-            bookLabel.setText(fallback(mark.getBookTitle(), "Libro desconocido"));
+            bookLabel.setText(textOr(mark.getBookTitle(), "Libro desconocido"));
         }
         dateLabel.setText(formatDate(mark.getDateCreated()));
         quoteArea.setText(text);
@@ -119,10 +120,6 @@ public class HighlightCellRenderer extends JPanel
         setOpaque(selected);
         selectionIndicator.setOpaque(selected);
         return this;
-    }
-
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
     }
 
     private String formatDate(String value) {

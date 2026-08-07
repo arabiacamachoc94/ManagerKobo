@@ -12,6 +12,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 import org.apache.pdfbox.pdmodel.PDDocument;
 import org.apache.pdfbox.pdmodel.PDPage;
 import org.apache.pdfbox.pdmodel.PDPageContentStream;
@@ -98,7 +99,7 @@ public class HighlightExportService {
 
         List<HighlightGroup> result = new ArrayList<>();
         for (List<Bookmark> marks : groups.values()) {
-            String title = fallback(marks.get(0).getBookTitle(), "Libro desconocido");
+            String title = textOr(marks.get(0).getBookTitle(), "Libro desconocido");
             result.add(new HighlightGroup(title, List.copyOf(marks)));
         }
         result.sort(Comparator.comparing(
@@ -107,16 +108,12 @@ public class HighlightExportService {
     }
 
     private String groupId(Bookmark mark) {
-        return fallback(mark.getVolumeId(),
-                "unknown:" + fallback(mark.getBookTitle(), "Libro desconocido"));
+        return textOr(mark.getVolumeId(),
+                "unknown:" + textOr(mark.getBookTitle(), "Libro desconocido"));
     }
 
     private String cleanText(String value) {
-        return fallback(value, "").replaceAll("\\s+", " ").strip();
-    }
-
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
+        return textOr(value, "").replaceAll("\\s+", " ").strip();
     }
 
     private String csv(String value) {

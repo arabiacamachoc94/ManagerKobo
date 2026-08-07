@@ -3,6 +3,7 @@ package com.arcac.managerkobo.ui.components;
 import com.arcac.managerkobo.ui.components.HighlightListItem.BookGroup;
 import com.arcac.managerkobo.ui.components.HighlightListItem.Highlight;
 import com.arcac.managerkobo.ui.theme.AppTheme;
+import com.arcac.managerkobo.ui.util.I18n;
 import java.awt.BorderLayout;
 import java.awt.Component;
 import java.awt.Dimension;
@@ -86,7 +87,7 @@ public class GroupedHighlightCellRenderer
                     : group.expanded() ? "▾" : "▸");
             title.setText(group.title());
             author.setText(group.author());
-            count.setText(group.loading() ? "Cargando..."
+            count.setText(group.loading() ? I18n.text("Cargando...")
                     : group.highlightCount() + " subr."
                     + (group.selectedCount() > 0
                             ? " · " + group.selectedCount() + " ✓"

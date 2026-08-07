@@ -9,6 +9,7 @@ import com.arcac.managerkobo.model.LookedUpWord;
 import com.arcac.managerkobo.util.KoboDetector;
 import com.arcac.managerkobo.util.KoboSyncResult;
 import java.sql.SQLException;
+import java.util.ArrayList;
 import java.util.List;
 
 /**
@@ -47,9 +48,42 @@ public class KoboLibraryService {
 
         KoboDAO dao = new KoboDAO();
         List<Book> books = dao.getAllBooks();
-        List<Bookmark> highlights = dao.getAllHighlightsWithBook();
-        List<LookedUpWord> words = dao.getLookedUpWords();
-        return createData(syncResult, books, highlights, words);
+        List<String> unavailableData = new ArrayList<>();
+        List<Bookmark> highlights = loadHighlights(dao, unavailableData);
+        List<LookedUpWord> words = loadWords(dao, unavailableData);
+        return createData(withCompatibilityWarning(syncResult, unavailableData),
+                books, highlights, words);
+    }
+
+    private List<Bookmark> loadHighlights(KoboDAO dao,
+            List<String> unavailableData) {
+        try {
+            return dao.getAllHighlightsWithBook();
+        } catch (KoboDataException exception) {
+            unavailableData.add("subrayados");
+            return List.of();
+        }
+    }
+
+    private List<LookedUpWord> loadWords(KoboDAO dao,
+            List<String> unavailableData) {
+        try {
+            return dao.getLookedUpWords();
+        } catch (KoboDataException exception) {
+            unavailableData.add("palabras consultadas");
+            return List.of();
+        }
+    }
+
+    private KoboSyncResult withCompatibilityWarning(KoboSyncResult result,
+            List<String> unavailableData) {
+        if (unavailableData.isEmpty()) return result;
+        String warning = " No se pudieron cargar "
+                + String.join(" ni ", unavailableData)
+                + " porque esta base de datos no contiene la estructura esperada.";
+        return new KoboSyncResult(result.koboConnected(),
+                result.databaseAvailable(), result.databaseUpdated(),
+                result.databasePath(), result.message() + warning);
     }
 
     private KoboLibraryData createData(KoboSyncResult syncResult,

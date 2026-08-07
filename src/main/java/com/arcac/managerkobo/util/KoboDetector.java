@@ -6,12 +6,15 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
 import java.text.SimpleDateFormat;
+import java.util.Comparator;
 import java.util.Date;
+import java.util.stream.Stream;
 
 /** Detecta el dispositivo Kobo y mantiene una copia local de su SQLite. */
 public final class KoboDetector {
     private static final Path DATA_DIRECTORY = Path.of("data");
     private static final Path LOCAL_DATABASE = DATA_DIRECTORY.resolve("KoboReader.sqlite");
+    private static final int MAX_BACKUPS = 5;
 
     private KoboDetector() { }
 
@@ -23,6 +26,7 @@ public final class KoboDetector {
         Path deviceDatabase = null;
         try {
             Files.createDirectories(DATA_DIRECTORY);
+            removeOldBackups();
             deviceDatabase = findDeviceDatabase();
 
             if (deviceDatabase == null) {
@@ -56,7 +60,7 @@ public final class KoboDetector {
         Path localAbsolute = LOCAL_DATABASE.toAbsolutePath().normalize();
         for (File root : roots) {
             Path candidate = root.toPath().resolve(".kobo").resolve("KoboReader.sqlite");
-            // Evita interpretar por accidente la propia copia local como dispositivo.
+            
             if (!candidate.toAbsolutePath().normalize().equals(localAbsolute)
                     && Files.isRegularFile(candidate)) {
                 return candidate;
@@ -81,11 +85,35 @@ public final class KoboDetector {
         Files.move(LOCAL_DATABASE, backup, StandardCopyOption.REPLACE_EXISTING);
         try {
             copyDatabase(deviceDatabase);
+            removeOldBackups();
         } catch (IOException exception) {
             Files.move(backup, LOCAL_DATABASE, StandardCopyOption.REPLACE_EXISTING);
             throw exception;
         }
         return true;
+    }
+
+    private static void removeOldBackups() {
+        try (Stream<Path> backups = Files.list(DATA_DIRECTORY)) {
+            backups.filter(Files::isRegularFile)
+                    .filter(path -> path.getFileName().toString()
+                            .matches("KoboReader_backup_\\d{8}_\\d{6}\\.sqlite"))
+                    .sorted(Comparator.comparing(
+                            (Path path) -> path.getFileName().toString())
+                            .reversed())
+                    .skip(MAX_BACKUPS)
+                    .forEach(KoboDetector::deleteQuietly);
+        } catch (IOException ignored) {
+            
+        }
+    }
+
+    private static void deleteQuietly(Path backup) {
+        try {
+            Files.deleteIfExists(backup);
+        } catch (IOException ignored) {
+            
+        }
     }
 
     private static void copyDatabase(Path source) throws IOException {

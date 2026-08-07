@@ -4,9 +4,11 @@ import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
 import com.arcac.managerkobo.service.BookCoverService;
 import com.arcac.managerkobo.ui.components.HighlightListPanel;
+import com.arcac.managerkobo.ui.components.RoundedButton;
 import com.arcac.managerkobo.ui.components.RoundedPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.util.IconLoader;
+import com.arcac.managerkobo.ui.util.I18n;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
@@ -17,13 +19,13 @@ import java.util.List;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JButton;
-import javax.swing.ImageIcon;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.SwingConstants;
-import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
+import static com.arcac.managerkobo.util.ReadingFormat.duration;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
 /** Vista de un libro, sus estadísticas y sus subrayados. */
 public class BookDetailPanel extends JPanel {
@@ -48,7 +50,7 @@ public class BookDetailPanel extends JPanel {
         header.setOpaque(false);
         header.setBorder(new EmptyBorder(22, 32, 8, 32));
 
-        JButton back = new JButton();
+        JButton back = new RoundedButton("", 28);
         back.setIcon(IconLoader.loadTinted("/icons/back.png", 18, AppTheme.TEXT));
         back.setToolTipText("Volver");
         back.getAccessibleContext().setAccessibleName("Volver");
@@ -75,10 +77,10 @@ public class BookDetailPanel extends JPanel {
         bookInfo.add(createCover(book), BorderLayout.WEST);
 
         JPanel text = verticalPanel();
-        text.add(label(fallback(book.getTitle(), "Sin título"),
+        text.add(label(textOr(book.getTitle(), "Sin título"),
                 18, Font.BOLD, AppTheme.TEXT));
         text.add(Box.createVerticalStrut(3));
-        text.add(label(fallback(book.getAuthor(), "Autor desconocido"),
+        text.add(label(textOr(book.getAuthor(), "Autor desconocido"),
                 14, Font.BOLD, AppTheme.MUTED_TEXT));
         text.add(Box.createVerticalStrut(3));
         text.add(label(metadata(book), 11, Font.PLAIN, AppTheme.MUTED_TEXT));
@@ -86,7 +88,7 @@ public class BookDetailPanel extends JPanel {
 
         JProgressBar progress = new JProgressBar(0, 100);
         progress.setValue(book.getPercentRead());
-        progress.setString(book.getPercentRead() + "% leído");
+        progress.setString(book.getPercentRead() + I18n.text("% leído"));
         progress.setStringPainted(true);
         progress.setForeground(AppTheme.PURPLE);
         progress.setBackground(AppTheme.BORDER);
@@ -116,10 +118,10 @@ public class BookDetailPanel extends JPanel {
 
         List<MetricValue> values = new ArrayList<>();
         values.add(new MetricValue(
-                formatTime(book.getSecondsRead()), "Tiempo leído"));
+                duration(book.getSecondsRead()), "Tiempo leído"));
         if (book.isInProgress() && book.getRestOfBookEstimate() > 0) {
             values.add(new MetricValue(
-                    formatTime(book.getRestOfBookEstimate()),
+                    duration(book.getRestOfBookEstimate()),
                     "Tiempo restante estimado"));
         }
         values.add(new MetricValue(
@@ -163,24 +165,9 @@ public class BookDetailPanel extends JPanel {
         cover.setIcon(IconLoader.loadTinted(
                 "/icons/libro.png", 38, AppTheme.PURPLE));
 
-        new SwingWorker<ImageIcon, Void>() {
-            @Override
-            protected ImageIcon doInBackground() {
-                return coverService.loadCover(book, 64, 90);
-            }
-
-            @Override
-            protected void done() {
-                try {
-                    ImageIcon loadedCover = get();
-                    if (loadedCover != null) {
-                        cover.setIcon(loadedCover);
-                    }
-                } catch (Exception ignored) {
-                    // Se conserva el icono genérico.
-                }
-            }
-        }.execute();
+        coverService.loadAsync(book, 64, 90, loadedCover -> {
+            if (loadedCover != null) cover.setIcon(loadedCover);
+        });
         return cover;
     }
 
@@ -207,24 +194,20 @@ public class BookDetailPanel extends JPanel {
     }
 
     private String metadata(Book book) {
-        String publisher = fallback(book.getPublisher(), "Editorial desconocida");
-        String language = fallback(book.getLanguage(), "Idioma desconocido")
+        String publisher = textOr(book.getPublisher(), "Editorial desconocida");
+        String language = textOr(book.getLanguage(), "Idioma desconocido")
                 .toUpperCase();
         return publisher + " · " + language + " · " + status(book);
     }
 
     private String status(Book book) {
         if (book.isFinished()) {
-            return "Terminado";
+            return I18n.text("Terminado");
         }
         if (book.isInProgress()) {
-            return "Leyendo";
+            return I18n.text("Leyendo");
         }
-        return "Sin empezar";
-    }
-
-    private String formatTime(int seconds) {
-        return (seconds / 3600) + " h " + ((seconds % 3600) / 60) + " min";
+        return I18n.text("Sin empezar");
     }
 
     private String formatDate(String value) {
@@ -233,10 +216,6 @@ public class BookDetailPanel extends JPanel {
 
     private boolean hasText(String value) {
         return value != null && !value.isBlank();
-    }
-
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
     }
 
     private record MetricValue(String value, String caption) { }

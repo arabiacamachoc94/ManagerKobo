@@ -13,6 +13,7 @@ import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
 import java.util.Locale;
+import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
 /**
  * Calcula estadísticas sin depender de Swing ni de SQLite.
@@ -48,11 +49,11 @@ public class LibraryStatisticsService {
         Map<String, Long> secondsByAuthor = safeBooks.stream()
                 .filter(book -> book.getSecondsRead() > 0)
                 .collect(Collectors.groupingBy(
-                        book -> fallback(book.getAuthor(), "Autor desconocido"),
+                        book -> textOr(book.getAuthor(), "Autor desconocido"),
                         Collectors.summingLong(Book::getSecondsRead)));
         Map<String, Integer> highlightsByAuthor = safeHighlights.stream()
                 .collect(Collectors.groupingBy(
-                        mark -> fallback(mark.getBookAuthor(), "Autor desconocido"),
+                        mark -> textOr(mark.getBookAuthor(), "Autor desconocido"),
                         Collectors.summingInt(mark -> 1)));
         List<Book> booksByTime = safeBooks.stream()
                 .filter(book -> book.getSecondsRead() > 0)
@@ -123,6 +124,10 @@ public class LibraryStatisticsService {
                                 book.getLastTimeFinishedReading(),
                                 book.getDateLastRead()))
                         .toList());
+        int finishedThisYear = finishedBooksInCurrentYear(safeBooks);
+        int elapsedMonths = YearMonth.now().getMonthValue();
+        double monthlyPace = finishedThisYear / (double) elapsedMonths;
+        int annualProjection = (int) Math.round(monthlyPace * 12);
 
         return new ReadingStatistics(safeBooks.size(), finished, reading, unread,
                 seconds, safeHighlights.size(), notes, averageProgress,
@@ -133,7 +138,8 @@ public class LibraryStatisticsService {
                 highlightsByBook, densityByBook,
                 sortDescending(booksByLanguage), inProgressBooks,
                 highlightsByMonth, notesByMonth, wordsByMonth,
-                finishedBooksByMonth);
+                finishedBooksByMonth, finishedThisYear, monthlyPace,
+                annualProjection);
     }
 
     public ReadingStatistics calculate(List<Book> books) {
@@ -172,10 +178,6 @@ public class LibraryStatisticsService {
                         Map.Entry::getValue,
                         (first, second) -> first,
                         LinkedHashMap::new));
-    }
-
-    private String fallback(String value, String alternative) {
-        return value == null || value.isBlank() ? alternative : value;
     }
 
     private String normalizeLanguage(String language) {
@@ -229,5 +231,26 @@ public class LibraryStatisticsService {
     private String fallbackDate(String preferred, String alternative) {
         return preferred == null || preferred.isBlank()
                 ? alternative : preferred;
+    }
+
+    private int finishedBooksInCurrentYear(List<Book> books) {
+        int currentYear = YearMonth.now().getYear();
+        return (int) books.stream()
+                .filter(Book::isFinished)
+                .map(book -> fallbackDate(
+                        book.getLastTimeFinishedReading(),
+                        book.getDateLastRead()))
+                .map(this::yearFromDate)
+                .filter(year -> year != null && year == currentYear)
+                .count();
+    }
+
+    private Integer yearFromDate(String date) {
+        if (date == null || date.length() < 4) return null;
+        try {
+            return Integer.valueOf(date.substring(0, 4));
+        } catch (NumberFormatException ignored) {
+            return null;
+        }
     }
 }

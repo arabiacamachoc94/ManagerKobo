@@ -5,14 +5,24 @@ import com.arcac.managerkobo.service.KoboLibraryService;
 import com.arcac.managerkobo.service.LibraryStatisticsService;
 import com.arcac.managerkobo.util.KoboSyncResult;
 import com.formdev.flatlaf.FlatDarkLaf;
+import com.formdev.flatlaf.FlatLightLaf;
 import com.arcac.managerkobo.ui.MainFrame;
+import com.arcac.managerkobo.ui.util.AppPreferences;
 import java.util.List;
 import javax.swing.SwingUtilities;
+import javax.swing.UIManager;
 
 public class Main {
 
     public static void main(String[] args) {
-        FlatDarkLaf.setup();
+        AppPreferences.applyLocale();
+        if (AppPreferences.isLightTheme()) {
+            FlatLightLaf.setup();
+        } else {
+            FlatDarkLaf.setup();
+        }
+        UIManager.put("Button.arc", 18);
+        UIManager.put("Component.arc", 14);
         KoboLibraryService libraryService = new KoboLibraryService();
         KoboLibraryData libraryData;
         try {

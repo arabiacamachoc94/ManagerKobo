@@ -16,9 +16,11 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Locale;
+import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.imageio.ImageIO;
 import javax.swing.ImageIcon;
+import javax.swing.SwingWorker;
 
 /**
  * Busca portadas en la caché local, en el Kobo conectado o en la URL incluida
@@ -61,6 +63,27 @@ public class BookCoverService {
         } catch (Exception ignored) {
             return null;
         }
+    }
+
+    public void loadAsync(Book book, int maxWidth, int maxHeight,
+            Consumer<ImageIcon> completion) {
+        new SwingWorker<ImageIcon, Void>() {
+            @Override
+            protected ImageIcon doInBackground() {
+                return loadCover(book, maxWidth, maxHeight);
+            }
+
+            @Override
+            protected void done() {
+                ImageIcon cover = null;
+                try {
+                    cover = get();
+                } catch (Exception ignored) {
+                    // La interfaz conservará su icono provisional.
+                }
+                completion.accept(cover);
+            }
+        }.execute();
     }
 
     private Path findCoverOnConnectedKobo(String imageId) {
