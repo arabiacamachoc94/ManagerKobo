@@ -15,6 +15,7 @@ import javax.swing.border.EmptyBorder;
 
 /** Pantalla global para consultar todos los subrayados. */
 public class HighlightsPanel extends JPanel {
+    private static final int PAGE_HEADER_HEIGHT = 124;
 
     public HighlightsPanel(List<Book> books, List<Bookmark> highlights) {
         List<Book> safeBooks = books == null ? List.of() : books;
@@ -31,6 +32,7 @@ public class HighlightsPanel extends JPanel {
     private JPanel createHeader(int total) {
         JPanel header = new JPanel();
         header.setOpaque(false);
+        header.setPreferredSize(new java.awt.Dimension(0, PAGE_HEADER_HEIGHT));
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
         header.setBorder(new EmptyBorder(30, 32, 22, 32));
         JLabel title = new JLabel("Subrayados");

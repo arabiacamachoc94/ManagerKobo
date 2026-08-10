@@ -35,7 +35,12 @@ public record ReadingStatistics(
         Map<String, Integer> finishedBooksByMonth,
         int finishedBooksThisYear,
         double monthlyBookPace,
-        int annualBookProjection
+        int annualBookProjection,
+        double averageReadingWordsPerMinute,
+        Book fastestReadBook,
+        double fastestReadingWordsPerMinute,
+        Book slowestReadBook,
+        double slowestReadingWordsPerMinute
 ) {
     public ReadingStatistics {
         readingSecondsByAuthor = Collections.unmodifiableMap(
@@ -60,7 +65,6 @@ public record ReadingStatistics(
                 new LinkedHashMap<>(finishedBooksByMonth));
     }
 
-    public long totalMinutesRead() { return totalSecondsRead / 60; }
     public double totalHoursRead() { return totalSecondsRead / 3600.0; }
     public double completionRate() {
         int started = finishedBooks + readingBooks;

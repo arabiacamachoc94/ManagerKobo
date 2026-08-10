@@ -3,11 +3,12 @@ package com.arcac.managerkobo.ui.panels;
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.model.Bookmark;
 import com.arcac.managerkobo.ui.components.BookCard;
-import com.arcac.managerkobo.ui.table.BookTableModel;
-import com.arcac.managerkobo.ui.table.BookTableModel.BookFilter;
+import com.arcac.managerkobo.ui.model.BookFilterModel;
+import com.arcac.managerkobo.ui.model.BookFilterModel.BookFilter;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.components.RoundedButton;
 import com.arcac.managerkobo.ui.util.I18n;
+import com.arcac.managerkobo.ui.util.UiStyles;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
@@ -38,30 +39,30 @@ import javax.swing.event.DocumentListener;
 /** Biblioteca visual en forma de cuadrícula de portadas. */
 public class LibraryPanel extends JPanel {
     private static final int CARD_GAP = 18;
+    private static final int PAGE_HEADER_HEIGHT = 124;
 
-    private final BookTableModel bookModel;
+    private final BookFilterModel bookModel;
     private final Consumer<Book> openBookAction;
     private final BookGridPanel grid = new BookGridPanel();
-    private final JLabel resultCount = new JLabel();
 
     public LibraryPanel(List<Book> books, List<Bookmark> highlights,
             Consumer<Book> openBookAction) {
-        this.bookModel = new BookTableModel(books, highlights);
+        this.bookModel = new BookFilterModel(books, highlights);
         this.openBookAction = openBookAction;
         setLayout(new BorderLayout());
         setBackground(AppTheme.BACKGROUND);
         add(createHeader(books.size()), BorderLayout.NORTH);
         add(createContent(), BorderLayout.CENTER);
-        bookModel.addTableModelListener(event -> refreshCards());
         refreshCards();
     }
 
     private JPanel createHeader(int totalBooks) {
         JPanel header = new JPanel();
         header.setOpaque(false);
+        header.setPreferredSize(new Dimension(0, PAGE_HEADER_HEIGHT));
         header.setLayout(new BoxLayout(header, BoxLayout.Y_AXIS));
         header.setBorder(new EmptyBorder(30, 32, 20, 32));
-        header.add(label("Mi Biblioteca", 29, Font.BOLD, AppTheme.TEXT));
+        header.add(label("Biblioteca", 29, Font.BOLD, AppTheme.TEXT));
         header.add(Box.createVerticalStrut(5));
         header.add(label(totalBooks
                 + " libros encontrados · Pulsa una portada para abrir el libro",
@@ -95,28 +96,24 @@ public class LibraryPanel extends JPanel {
                 "Buscar título o autor...");
         search.setPreferredSize(new Dimension(360, 40));
         search.getDocument().addDocumentListener(new DocumentListener() {
-            private void update() { bookModel.filter(search.getText()); }
+            private void update() {
+                bookModel.filter(search.getText());
+                refreshCards();
+            }
             @Override public void insertUpdate(DocumentEvent event) { update(); }
             @Override public void removeUpdate(DocumentEvent event) { update(); }
             @Override public void changedUpdate(DocumentEvent event) { update(); }
         });
 
         JButton filter = new RoundedButton("Filtrar ▾");
-        filter.setBackground(AppTheme.PURPLE);
-        filter.setForeground(java.awt.Color.WHITE);
-        filter.setFont(AppTheme.font(Font.BOLD, 13));
-        filter.setFocusPainted(false);
-        filter.setBorder(new EmptyBorder(11, 17, 11, 17));
+        UiStyles.actionButton(filter, AppTheme.PURPLE);
+        filter.setPreferredSize(new Dimension(125, UiStyles.CONTROL_HEIGHT));
         JPopupMenu filterMenu = createFilterMenu(filter);
         filter.addActionListener(event ->
                 filterMenu.show(filter, 0, filter.getHeight()));
 
-        resultCount.setFont(AppTheme.font(Font.PLAIN, 12));
-        resultCount.setForeground(AppTheme.MUTED_TEXT);
-        resultCount.setBorder(new EmptyBorder(0, 4, 0, 4));
         JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 8, 0));
         actions.setOpaque(false);
-        actions.add(resultCount);
         actions.add(filter);
 
         toolbar.add(search, BorderLayout.CENTER);
@@ -148,6 +145,7 @@ public class LibraryPanel extends JPanel {
         clear.addActionListener(event -> {
             checks.values().forEach(check -> check.setSelected(false));
             bookModel.setBookFilters(EnumSet.noneOf(BookFilter.class));
+            refreshCards();
             filterButton.setText(I18n.text("Filtrar ▾"));
             menu.setVisible(false);
         });
@@ -158,6 +156,7 @@ public class LibraryPanel extends JPanel {
                 if (check.isSelected()) selected.add(filter);
             });
             bookModel.setBookFilters(selected);
+            refreshCards();
             filterButton.setText(selected.isEmpty()
                     ? I18n.text("Filtrar ▾")
                     : I18n.text("Filtrar") + " (" + selected.size() + ") ▾");
@@ -180,11 +179,9 @@ public class LibraryPanel extends JPanel {
 
     private void refreshCards() {
         grid.removeAll();
-        for (int row = 0; row < bookModel.getRowCount(); row++) {
-            Book book = bookModel.getBookAt(row);
-            if (book != null) grid.add(new BookCard(book, openBookAction));
+        for (Book book : bookModel.visibleBooks()) {
+            grid.add(new BookCard(book, openBookAction));
         }
-        resultCount.setText(I18n.text(bookModel.getRowCount() + " libros"));
         grid.revalidate();
         grid.repaint();
         SwingUtilities.invokeLater(() -> grid.scrollRectToVisible(

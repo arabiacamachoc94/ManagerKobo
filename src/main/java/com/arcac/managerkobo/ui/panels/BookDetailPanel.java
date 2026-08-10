@@ -26,6 +26,8 @@ import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import static com.arcac.managerkobo.util.ReadingFormat.duration;
 import static com.arcac.managerkobo.util.ReadingFormat.textOr;
+import static com.arcac.managerkobo.util.ReadingFormat.hasReliableReadingPace;
+import static com.arcac.managerkobo.util.ReadingFormat.wordsPerMinute;
 
 /** Vista de un libro, sus estadísticas y sus subrayados. */
 public class BookDetailPanel extends JPanel {
@@ -128,25 +130,16 @@ public class BookDetailPanel extends JPanel {
                 String.valueOf(highlights.size()), "Subrayados"));
         values.add(new MetricValue(String.valueOf(notes), "Notas"));
         values.add(new MetricValue(density, "Subrayados por hora"));
+        values.add(new MetricValue(
+                hasReliableReadingPace(book)
+                        ? Math.round(wordsPerMinute(book)) + " ppm"
+                        : "Sin datos",
+                "Velocidad de lectura"));
         addDate(values, book.getDateLastRead(), "Última lectura");
         addDate(values, book.getLastTimeStartedReading(),
                 "Último inicio registrado");
         addDate(values, book.getLastTimeFinishedReading(), "Finalización");
 
-        highlights.stream()
-                .map(Bookmark::getDateCreated)
-                .filter(this::hasText)
-                .min(String::compareTo)
-                .map(this::formatDate)
-                .ifPresent(date -> values.add(
-                        new MetricValue(date, "Primer subrayado")));
-        highlights.stream()
-                .map(Bookmark::getDateCreated)
-                .filter(this::hasText)
-                .max(String::compareTo)
-                .map(this::formatDate)
-                .ifPresent(date -> values.add(
-                        new MetricValue(date, "Último subrayado")));
         return values;
     }
 

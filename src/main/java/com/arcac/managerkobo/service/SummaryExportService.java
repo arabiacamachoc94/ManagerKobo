@@ -71,8 +71,12 @@ public class SummaryExportService {
                 text(english, "HORAS LEÍDAS", "HOURS READ"),
                 Math.round(statistics.totalHoursRead()), PURPLE);
         drawMetric(graphics, 875, 145, cardWidth,
-                text(english, "SUBRAYADOS", "HIGHLIGHTS"),
-                statistics.totalHighlights(), ORANGE);
+                text(english, "RITMO DE LECTURA (PPM)", "READING PACE (WPM)"),
+                statistics.averageReadingWordsPerMinute() <= 0
+                        ? "--"
+                        : String.valueOf(Math.round(
+                                statistics.averageReadingWordsPerMinute())),
+                ORANGE);
 
         drawText(graphics, text(english, "Lecturas en curso", "Current reads"),
                 56, 290, 19, Font.BOLD, INK);
@@ -110,10 +114,15 @@ public class SummaryExportService {
 
     private void drawMetric(Graphics2D g, int x, int y, int width,
             String title, long value, Color accent) {
+        drawMetric(g, x, y, width, title, String.valueOf(value), accent);
+    }
+
+    private void drawMetric(Graphics2D g, int x, int y, int width,
+            String title, String value, Color accent) {
         roundedPanel(g, x, y, width, 105);
         g.setColor(accent);
         g.fillRoundRect(x + 18, y + 18, 8, 69, 8, 8);
-        drawText(g, String.valueOf(value), x + 45, y + 60, 28, Font.BOLD, INK);
+        drawText(g, value, x + 45, y + 60, 28, Font.BOLD, INK);
         drawText(g, title, x + 45, y + 84, 11, Font.BOLD, MUTED);
     }
 
@@ -175,16 +184,30 @@ public class SummaryExportService {
                 ? text(english, "Sin datos", "No data")
                 : textOr(stats.mostHighlightedBook().getTitle(),
                         text(english, "Sin título", "Untitled"));
-        drawDataLine(g, x + 22, y + 39,
+        drawDataLine(g, x + 22, y + 29,
                 text(english, "Autor con más tiempo", "Top author by time"), author);
-        drawDataLine(g, x + 22, y + 79,
+        drawDataLine(g, x + 22, y + 58,
                 text(english, "Libro más subrayado", "Most-highlighted book"), highlighted);
-        drawDataLine(g, x + 22, y + 119,
+        drawDataLine(g, x + 22, y + 87,
                 text(english, "Progreso medio", "Average progress"),
                 Math.round(stats.averageProgress()) + "%");
-        drawDataLine(g, x + 22, y + 159,
+        drawDataLine(g, x + 22, y + 116,
                 text(english, "Lecturas activas", "Current reads"),
                 String.valueOf(stats.readingBooks()));
+        String fastest = stats.fastestReadBook() == null
+                ? text(english, "Sin datos", "No data")
+                : textOr(stats.fastestReadBook().getTitle(),
+                        text(english, "Sin título", "Untitled"));
+        drawDataLine(g, x + 22, y + 145,
+                text(english, "Libro leído más rápido", "Fastest-read book"),
+                fastest);
+        String slowest = stats.slowestReadBook() == null
+                ? text(english, "Sin datos", "No data")
+                : textOr(stats.slowestReadBook().getTitle(),
+                        text(english, "Sin título", "Untitled"));
+        drawDataLine(g, x + 22, y + 174,
+                text(english, "Libro leído más lento", "Slowest-read book"),
+                slowest);
     }
 
     private void drawDataLine(Graphics2D g, int x, int y, String label, String value) {

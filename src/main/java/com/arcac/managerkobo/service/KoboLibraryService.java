@@ -48,6 +48,7 @@ public class KoboLibraryService {
 
         KoboDAO dao = new KoboDAO();
         List<Book> books = dao.getAllBooks();
+        new BookWordCountService().enrich(books, syncResult.koboConnected());
         List<String> unavailableData = new ArrayList<>();
         List<Bookmark> highlights = loadHighlights(dao, unavailableData);
         List<LookedUpWord> words = loadWords(dao, unavailableData);

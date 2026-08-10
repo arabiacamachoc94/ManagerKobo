@@ -24,7 +24,9 @@ public class KoboDAO {
                        LastTimeFinishedReading, ChapterIDBookmarked,
                        COALESCE(CurrentChapterProgress, 0) AS CurrentChapterProgress,
                        COALESCE(RestOfBookEstimate, 0) AS RestOfBookEstimate,
-                       COALESCE(CurrentChapterEstimate, 0) AS CurrentChapterEstimate
+                       COALESCE(CurrentChapterEstimate, 0) AS CurrentChapterEstimate,
+                       COALESCE(NULLIF(WordCount, -1),
+                                NULLIF(StoreWordCount, 0), 0) AS TotalWordCount
                 FROM content
                 WHERE ContentType = 6
                   AND Title IS NOT NULL
@@ -140,6 +142,7 @@ public class KoboDAO {
         book.setCurrentChapterProgress(rs.getDouble("CurrentChapterProgress"));
         book.setRestOfBookEstimate(rs.getInt("RestOfBookEstimate"));
         book.setCurrentChapterEstimate(rs.getInt("CurrentChapterEstimate"));
+        book.setWordCount(rs.getInt("TotalWordCount"));
         return book;
     }
 

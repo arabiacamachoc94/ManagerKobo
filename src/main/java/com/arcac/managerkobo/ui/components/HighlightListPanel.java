@@ -11,6 +11,7 @@ import com.arcac.managerkobo.ui.components.HighlightListItem.Highlight;
 import com.arcac.managerkobo.ui.dialogs.AiSummaryDialog;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.util.I18n;
+import com.arcac.managerkobo.ui.util.UiStyles;
 import java.awt.BorderLayout;
 import java.awt.Dimension;
 import java.awt.Font;
@@ -18,6 +19,7 @@ import java.awt.GridLayout;
 import java.awt.Point;
 import java.awt.Rectangle;
 import java.awt.Color;
+import java.awt.Cursor;
 import java.awt.Toolkit;
 import java.awt.datatransfer.StringSelection;
 import java.awt.event.ComponentAdapter;
@@ -35,7 +37,6 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.io.File;
-import java.io.IOException;
 import java.nio.file.Path;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -53,6 +54,7 @@ import javax.swing.JMenuItem;
 import javax.swing.filechooser.FileNameExtensionFilter;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.SwingUtilities;
+import javax.swing.SwingWorker;
 import javax.swing.ImageIcon;
 import javax.swing.Timer;
 import javax.swing.border.EmptyBorder;
@@ -85,6 +87,7 @@ public class HighlightListPanel extends JPanel {
     private boolean selectionMode;
     private JScrollPane scrollPane;
     private JPanel toolbar;
+    private boolean exportInProgress;
 
     public HighlightListPanel(List<Bookmark> highlights, boolean groupByBook) {
         this(highlights, groupByBook, List.of());
@@ -111,6 +114,7 @@ public class HighlightListPanel extends JPanel {
     private JPanel createToolbar() {
         toolbar = new JPanel();
         toolbar.setOpaque(false);
+        toolbar.setBorder(new EmptyBorder(0, 0, 0, 10));
         search.putClientProperty("JTextField.placeholderText",
                 groupByBook
                         ? "Buscar libro, autor o texto subrayado..."
@@ -209,6 +213,9 @@ public class HighlightListPanel extends JPanel {
             actions.add(select);
 
             JButton export = actionButton("Exportar", AppTheme.GREEN);
+            export.setToolTipText(I18n.text(allHighlights.isEmpty()
+                    ? "No hay datos para exportar."
+                    : "Exportar todos los subrayados"));
             JPopupMenu exportMenu = createExportMenu();
             export.addActionListener(event ->
                     exportMenu.show(export, 0, export.getHeight()));
@@ -260,13 +267,11 @@ public class HighlightListPanel extends JPanel {
 
     private JButton actionButton(String text, Color background) {
         JButton button = new RoundedButton(I18n.text(text));
-        button.putClientProperty("JButton.buttonType", "roundRect");
-        button.putClientProperty("JComponent.roundRect", true);
-        button.setFont(AppTheme.font(Font.BOLD, 12));
-        button.setForeground(Color.WHITE);
-        button.setBackground(background);
-        button.setFocusPainted(false);
-        button.setBorder(new EmptyBorder(9, 10, 9, 10));
+        if (background.equals(AppTheme.PANEL_ALT)) {
+            UiStyles.secondaryButton(button);
+        } else {
+            UiStyles.actionButton(button, background);
+        }
         return button;
     }
 
@@ -288,10 +293,11 @@ public class HighlightListPanel extends JPanel {
         highlightList.setForeground(AppTheme.TEXT);
         highlightList.setOpaque(false);
         highlightList.setFixedCellHeight(-1);
-        highlightList.setBorder(null);
+        highlightList.setBorder(new EmptyBorder(0, 0, 0, 10));
         highlightList.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent event) {
+            public void mousePressed(MouseEvent event) {
+                if (!SwingUtilities.isLeftMouseButton(event)) return;
                 handleListClick(event.getPoint());
             }
         });
@@ -450,8 +456,8 @@ public class HighlightListPanel extends JPanel {
         Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new StringSelection(text), null);
         JOptionPane.showMessageDialog(this,
-                selected.size() + " subrayados copiados al portapapeles.",
-                "Copiar subrayados", JOptionPane.INFORMATION_MESSAGE);
+                selected.size() + I18n.text(" subrayados copiados al portapapeles."),
+                I18n.text("Copiar subrayados"), JOptionPane.INFORMATION_MESSAGE);
     }
 
     private String copyText(Bookmark mark) {
@@ -470,25 +476,34 @@ public class HighlightListPanel extends JPanel {
     }
 
     private void exportHighlights(List<Bookmark> highlights) {
+        if (exportInProgress) return;
         if (highlights.isEmpty()) {
             showWarning("No hay subrayados para exportar en esta opción.");
             return;
         }
 
-        ExportFormat format = (ExportFormat) JOptionPane.showInputDialog(
+        String[] formats = java.util.Arrays.stream(ExportFormat.values())
+                .map(value -> value == ExportFormat.TXT
+                        ? I18n.text("Texto") : value.toString())
+                .toArray(String[]::new);
+        String selectedFormat = (String) JOptionPane.showInputDialog(
                 this,
-                "Selecciona el formato del archivo:",
-                "Formato de exportación",
+                I18n.text("Selecciona el formato del archivo:"),
+                I18n.text("Formato de exportación"),
                 JOptionPane.QUESTION_MESSAGE,
                 null,
-                ExportFormat.values(),
-                ExportFormat.TXT);
-        if (format == null) {
+                formats,
+                formats[0]);
+        if (selectedFormat == null) {
             return;
         }
+        ExportFormat format = ExportFormat.values()[
+                java.util.Arrays.asList(formats).indexOf(selectedFormat)];
 
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Exportar subrayados");
+        chooser.setDialogTitle(I18n.text("Exportar subrayados"));
+        chooser.setApproveButtonText(I18n.text("Exportar"));
+        I18n.translateTree(chooser);
         String extension = format.extension().substring(1);
         chooser.setFileFilter(new FileNameExtensionFilter(
                 format + " (*" + format.extension() + ")", extension));
@@ -502,24 +517,58 @@ public class HighlightListPanel extends JPanel {
                 chooser.getSelectedFile().toPath(), format.extension());
         if (destination.toFile().exists()) {
             int answer = JOptionPane.showConfirmDialog(this,
-                    "El archivo ya existe. ¿Quieres reemplazarlo?",
-                    "Confirmar exportación", JOptionPane.YES_NO_OPTION);
+                    I18n.text("El archivo ya existe. ¿Quieres reemplazarlo?"),
+                    I18n.text("Confirmar exportación"), JOptionPane.YES_NO_OPTION);
             if (answer != JOptionPane.YES_OPTION) {
                 return;
             }
         }
 
-        try {
-            exportService.export(highlights, destination, format);
-            JOptionPane.showMessageDialog(this,
-                    highlights.size() + " subrayados exportados en "
-                            + format + " correctamente.",
-                    "Exportación completada", JOptionPane.INFORMATION_MESSAGE);
-        } catch (IOException exception) {
-            JOptionPane.showMessageDialog(this,
-                    "No se pudo crear el archivo: " + exception.getMessage(),
-                    "Error de exportación", JOptionPane.ERROR_MESSAGE);
-        }
+        setExportInProgress(true);
+        new SwingWorker<Void, Void>() {
+            @Override
+            protected Void doInBackground() throws Exception {
+                exportService.export(highlights, destination, format);
+                return null;
+            }
+
+            @Override
+            protected void done() {
+                try {
+                    get();
+                    JOptionPane.showMessageDialog(HighlightListPanel.this,
+                            highlights.size()
+                                    + I18n.text(" subrayados exportados en ")
+                                    + selectedFormat
+                                    + I18n.text(" correctamente."),
+                            I18n.text("Exportación completada"),
+                            JOptionPane.INFORMATION_MESSAGE);
+                } catch (Exception exception) {
+                    JOptionPane.showMessageDialog(HighlightListPanel.this,
+                            I18n.text("No se pudo crear el archivo: ")
+                                    + rootMessage(exception),
+                            I18n.text("Error de exportación"),
+                            JOptionPane.ERROR_MESSAGE);
+                } finally {
+                    setExportInProgress(false);
+                }
+            }
+        }.execute();
+    }
+
+    private void setExportInProgress(boolean exporting) {
+        exportInProgress = exporting;
+        search.setEnabled(!exporting);
+        highlightList.setEnabled(!exporting);
+        setCursor(Cursor.getPredefinedCursor(exporting
+                ? Cursor.WAIT_CURSOR : Cursor.DEFAULT_CURSOR));
+    }
+
+    private String rootMessage(Throwable throwable) {
+        Throwable current = throwable;
+        while (current.getCause() != null) current = current.getCause();
+        return current.getMessage() == null
+                ? current.getClass().getSimpleName() : current.getMessage();
     }
 
     private Path withExtension(Path path, String extension) {
@@ -527,13 +576,13 @@ public class HighlightListPanel extends JPanel {
         if (fileName.toLowerCase(Locale.ROOT).endsWith(extension)) {
             return path;
         }
-        String baseName = fileName.replaceFirst("(?i)\\.(csv|txt|pdf)$", "");
+        String baseName = fileName.replaceFirst("(?i)\\.(txt|pdf)$", "");
         return path.resolveSibling(baseName + extension);
     }
 
     private void showWarning(String message) {
-        JOptionPane.showMessageDialog(this, message,
-                "Subrayados", JOptionPane.WARNING_MESSAGE);
+        JOptionPane.showMessageDialog(this, I18n.text(message),
+                I18n.text("Subrayados"), JOptionPane.WARNING_MESSAGE);
     }
 
     private List<Bookmark> filteredHighlights(String query) {

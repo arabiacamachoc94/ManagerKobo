@@ -21,37 +21,16 @@ import org.apache.pdfbox.pdmodel.font.PDFont;
 import org.apache.pdfbox.pdmodel.font.PDType1Font;
 import org.apache.pdfbox.pdmodel.font.Standard14Fonts;
 
-/** Exporta subrayados en formatos tabulares o agrupados por libro. */
+/** Exporta subrayados agrupados por libro en texto o PDF. */
 public class HighlightExportService {
 
     public void export(
             List<Bookmark> highlights, Path destination, ExportFormat format)
             throws IOException {
         switch (format) {
-            case CSV -> exportCsv(highlights, destination);
             case TXT -> exportTxt(highlights, destination);
             case PDF -> exportPdf(highlights, destination);
         }
-    }
-
-    public void exportCsv(List<Bookmark> highlights, Path destination)
-            throws IOException {
-        StringBuilder csv = new StringBuilder();
-        csv.append('\uFEFF');
-        csv.append("Libro,Autor,Texto,Nota,Fecha,Capítulo,Color")
-                .append(System.lineSeparator());
-
-        for (Bookmark mark : highlights) {
-            csv.append(csv(mark.getBookTitle())).append(',')
-                    .append(csv(mark.getBookAuthor())).append(',')
-                    .append(csv(mark.getText())).append(',')
-                    .append(csv(mark.getUserNote())).append(',')
-                    .append(csv(mark.getDateCreated())).append(',')
-                    .append(csv(mark.getChapterTitle())).append(',')
-                    .append(mark.getColor())
-                    .append(System.lineSeparator());
-        }
-        Files.writeString(destination, csv, StandardCharsets.UTF_8);
     }
 
     public void exportTxt(List<Bookmark> highlights, Path destination)
@@ -116,16 +95,10 @@ public class HighlightExportService {
         return textOr(value, "").replaceAll("\\s+", " ").strip();
     }
 
-    private String csv(String value) {
-        String safeValue = value == null ? "" : value;
-        return "\"" + safeValue.replace("\"", "\"\"") + "\"";
-    }
-
     private record HighlightGroup(String title, List<Bookmark> highlights) {
     }
 
     public enum ExportFormat {
-        CSV("CSV", ".csv"),
         TXT("Texto", ".txt"),
         PDF("PDF", ".pdf");
 

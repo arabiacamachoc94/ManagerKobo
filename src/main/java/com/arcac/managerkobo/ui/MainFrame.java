@@ -105,6 +105,7 @@ public class MainFrame extends JFrame {
         setLayout(new BorderLayout());
         sidebarPanel = new SidebarPanel(
                 this::showPage, this::synchronizeDatabase, koboConnected);
+        sidebarPanel.setLastSynchronization(lastSynchronization);
         add(sidebarPanel, BorderLayout.WEST);
         add(contentPanel, BorderLayout.CENTER);
     }
@@ -119,12 +120,12 @@ public class MainFrame extends JFrame {
         }
         UIManager.put("Button.arc", 18);
         UIManager.put("Component.arc", 14);
+        SwingUtilities.updateComponentTreeUI(this);
         getContentPane().removeAll();
         createLayout(currentKoboConnected);
         createPages(currentBooks, currentHighlights, currentWords, currentStatistics);
         showPage(SidebarPanel.SETTINGS);
         I18n.translateTree(this);
-        SwingUtilities.updateComponentTreeUI(this);
         revalidate();
         repaint();
     }
@@ -177,6 +178,7 @@ public class MainFrame extends JFrame {
                         if (data.syncResult().databaseUpdated()) {
                             lastSynchronization = LocalDateTime.now();
                         }
+                        sidebarPanel.setLastSynchronization(lastSynchronization);
                         String pageAfterSync = BOOK_DETAIL.equals(currentPage)
                                 ? bookDetailReturnPage : currentPage;
                         createPages(data.books(), data.highlights(),

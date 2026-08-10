@@ -3,137 +3,122 @@ package com.arcac.managerkobo.ai;
 import com.arcac.managerkobo.model.Book;
 import com.arcac.managerkobo.service.ReadingStatistics;
 import com.arcac.managerkobo.ui.util.AppPreferences;
-import java.util.Map;
 import java.util.stream.Collectors;
 
 /** Genera una interpretación breve a partir de estadísticas agregadas. */
 public class ReadingInsightsAiService {
-    private final GeminiClient client = new GeminiClient();
+    private final GeminiClient client;
+
+    public ReadingInsightsAiService() {
+        this(new GeminiClient());
+    }
+
+    ReadingInsightsAiService(GeminiClient client) {
+        this.client = client;
+    }
 
     public boolean isConfigured() {
         return client.isConfigured();
     }
 
     public String analyze(ReadingStatistics statistics) {
-        return client.generate(buildPrompt(statistics));
+        return cleanAnalysis(client.generate(buildPrompt(statistics)));
     }
 
     private String buildPrompt(ReadingStatistics statistics) {
         String data = """
-                Biblioteca:
-                - Libros totales: %d
-                - Terminados: %d
-                - En curso: %d
-                - Sin empezar: %d
-                - Porcentaje de finalización: %.1f%%
-                - Progreso medio: %.1f%%
-                - Tiempo total: %.1f horas
-                - Media por libro empezado: %.1f horas
-                - Media por libro terminado: %.1f horas
-                - Subrayados: %d
-                - Subrayados con nota: %d
-
-                Libro con más tiempo: %s
-                Libro más subrayado: %s (%d subrayados)
-
-                Tiempo por autor (principales): %s
-                Subrayados por autor (principales): %s
-                Libros con más tiempo: %s
-                Libros con más subrayados: %s
-                Mayor densidad de subrayados: %s
-                Idiomas de la biblioteca: %s
-                Lecturas actuales: %s
-
-                Actividad mensual:
-                - Subrayados: %s
-                - Notas: %s
-                - Palabras consultadas: %s
-                - Libros terminados (estimado): %s
-                - Terminados este año: %d
-                - Ritmo mensual: %.1f libros
-                - Proyección anual: %d libros
+                total=%d; terminados=%d; en_curso=%d; sin_empezar=%d
+                finalizacion=%.1f%%; progreso_medio=%.1f%%; horas_totales=%.1f
+                horas_medias_por_terminado=%.1f; subrayados=%d; con_nota=%d
+                libro_mas_subrayado=%s (%d); lecturas_actuales=%s
+                terminados_por_mes=%s; terminados_este_ano=%d
+                ritmo_mensual=%.1f; proyeccion_anual=%d; ritmo_lector=%s
+                libro_mas_rapido=%s; libro_mas_lento=%s
                 """.formatted(
                 statistics.totalBooks(), statistics.finishedBooks(),
                 statistics.readingBooks(), statistics.unreadBooks(),
                 statistics.completionRate(), statistics.averageProgress(),
                 statistics.totalHoursRead(),
-                statistics.averageSecondsPerStartedBook() / 3600.0,
                 statistics.averageSecondsPerFinishedBook() / 3600.0,
                 statistics.totalHighlights(), statistics.highlightsWithNote(),
-                bookName(statistics.mostReadBook()),
                 bookName(statistics.mostHighlightedBook()),
                 statistics.mostHighlightedCount(),
-                topMap(statistics.readingSecondsByAuthor(), true),
-                topMap(statistics.highlightsByAuthor(), false),
-                statistics.booksByReadingTime().stream().limit(5)
-                        .map(book -> bookName(book) + " ("
-                                + decimal(book.getSecondsRead() / 3600.0) + " h)")
-                        .collect(Collectors.joining(", ")),
-                topBookMap(statistics.highlightsByBook(), false),
-                topBookMap(statistics.highlightDensityByBook(), true),
-                statistics.booksByLanguage(), currentBooks(statistics),
-                statistics.highlightsByMonth(), statistics.notesByMonth(),
-                statistics.wordsByMonth(), statistics.finishedBooksByMonth(),
+                currentBooks(statistics), statistics.finishedBooksByMonth(),
                 statistics.finishedBooksThisYear(), statistics.monthlyBookPace(),
-                statistics.annualBookProjection());
+                statistics.annualBookProjection(),
+                readingPace(statistics.averageReadingWordsPerMinute()),
+                bookName(statistics.fastestReadBook()),
+                bookName(statistics.slowestReadBook()));
 
         if (AppPreferences.isEnglish()) {
             return """
-                    Analyze the following aggregated reading statistics. Write a
-                    natural, concise final insight of 85 to 105 words in English.
-                    Write exactly two short paragraphs: the first should explain
-                    the most relevant reading patterns and the second should give
-                    one practical, neutral suggestion. Do not add headings, lists,
-                    Markdown or bold text. Do not list every number, invent causes,
-                    make psychological claims or mention missing data.
+                    Interpret the reading data below; do not merely restate it.
+                    Write approximately 90 words in English, in two short paragraphs.
+                    Identify the two most meaningful patterns by comparing related
+                    measures (completion and active reading, pace and reading history,
+                    or highlights and completed books) and explain what those
+                    relationships show. Mention at most two exact figures and avoid
+                    describing each field separately. Output only the final prose.
+                    No headings, lists, Markdown, word count, validation, invented
+                    causes, missing-data comments, advice or recommendations.
 
-                    DATA:
                     %s
                     """.formatted(data);
         }
         return """
-                Analiza las siguientes estadísticas agregadas de lectura. Escribe
-                un análisis final natural y conciso de entre 85 y 105 palabras en
-                español. Escribe exactamente dos párrafos breves: el primero debe
-                explicar los patrones de lectura más relevantes y el segundo debe
-                ofrecer una única sugerencia práctica y neutral. No añadas títulos,
-                listas, Markdown ni negritas. No enumeres todas las cifras, no
-                inventes causas, no hagas afirmaciones psicológicas y no menciones
-                los datos que falten.
+                Interpreta los datos de lectura siguientes; no te limites a repetirlos.
+                Escribe unas 90 palabras en español, repartidas en dos párrafos
+                breves. Detecta los dos patrones más significativos comparando datos
+                relacionados (finalización y lecturas activas, ritmo e historial de
+                lectura, o subrayados y libros terminados) y explica qué muestran
+                esas relaciones. Menciona como máximo dos cifras exactas y evita
+                describir cada campo por separado. Devuelve solo el texto final.
+                Sin títulos, listas, Markdown, recuentos, comprobaciones, causas
+                inventadas, comentarios sobre datos ausentes, consejos ni sugerencias.
 
-                DATOS:
                 %s
                 """.formatted(data);
+    }
+
+    private String cleanAnalysis(String response) {
+        if (response == null || response.isBlank()) return response;
+
+        String warning = "\n\n⚠ ";
+        int warningStart = response.indexOf(warning);
+        String warningText = warningStart >= 0 ? response.substring(warningStart) : "";
+        String result = warningStart >= 0
+                ? response.substring(0, warningStart) : response;
+
+        String[] markers = {"\nTotal:", "\nConstraints check:",
+                "\nComprobación de restricciones:", "\nWord count:"};
+        int technicalStart = result.length();
+        for (String marker : markers) {
+            int index = result.indexOf(marker);
+            if (index >= 0) technicalStart = Math.min(technicalStart, index);
+        }
+
+        java.util.regex.Matcher numberedWords = java.util.regex.Pattern
+                .compile("(?m)^\\s*\\d+\\s*:\\s*\\S+")
+                .matcher(result);
+        if (numberedWords.find()) {
+            technicalStart = Math.min(technicalStart, numberedWords.start());
+        }
+        result = result.substring(0, technicalStart).strip();
+
+        // Algunos modelos dejan una palabra aislada justo antes del recuento.
+        result = result.replaceFirst("(?s)\\R\\s*[\\p{L}]+\\s*$", "").strip();
+        return looksComplete(result) ? result : result + warningText;
+    }
+
+    private boolean looksComplete(String text) {
+        int words = text.isBlank() ? 0 : text.split("\\s+").length;
+        return words >= 55 && text.matches("(?s).*?[.!?»]$");
     }
 
     private String currentBooks(ReadingStatistics statistics) {
         return statistics.inProgressBooks().stream()
                 .map(book -> bookName(book) + " (" + book.getPercentRead()
-                        + "%%, " + decimal(book.getSecondsRead() / 3600.0) + " h)")
-                .collect(Collectors.joining(", "));
-    }
-
-    private String topMap(Map<String, ? extends Number> values, boolean seconds) {
-        return values.entrySet().stream()
-                .sorted((first, second) -> Double.compare(
-                        second.getValue().doubleValue(),
-                        first.getValue().doubleValue()))
-                .limit(5)
-                .map(entry -> entry.getKey() + " (" + (seconds
-                        ? decimal(entry.getValue().doubleValue() / 3600.0) + " h"
-                        : entry.getValue()) + ")")
-                .collect(Collectors.joining(", "));
-    }
-
-    private String topBookMap(Map<Book, ? extends Number> values, boolean decimal) {
-        return values.entrySet().stream()
-                .sorted((first, second) -> Double.compare(
-                        second.getValue().doubleValue(),
-                        first.getValue().doubleValue()))
-                .limit(5)
-                .map(entry -> bookName(entry.getKey()) + " ("
-                        + (decimal ? decimal(entry.getValue().doubleValue())
-                                : entry.getValue()) + ")")
+                        + "%, " + decimal(book.getSecondsRead() / 3600.0) + " h)")
                 .collect(Collectors.joining(", "));
     }
 
@@ -144,5 +129,10 @@ public class ReadingInsightsAiService {
 
     private String decimal(double value) {
         return String.format(java.util.Locale.ROOT, "%.1f", value);
+    }
+
+    private String readingPace(double wordsPerMinute) {
+        return wordsPerMinute <= 0 ? "Sin datos"
+                : Math.round(wordsPerMinute) + " palabras por minuto";
     }
 }

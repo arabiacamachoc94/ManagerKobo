@@ -33,10 +33,6 @@ public class HighlightCellRenderer extends JPanel
     private final JCheckBox selectionCheck = new JCheckBox();
     private final boolean showBookTitle;
 
-    public HighlightCellRenderer() {
-        this(0, true);
-    }
-
     public HighlightCellRenderer(int leftIndent) {
         this(leftIndent, true);
     }

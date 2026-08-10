@@ -13,7 +13,7 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Rectangle;
 import java.util.List;
-import java.util.Map;
+import java.util.Comparator;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.JComboBox;
@@ -25,10 +25,13 @@ import javax.swing.Scrollable;
 import javax.swing.border.EmptyBorder;
 import static com.arcac.managerkobo.util.ReadingFormat.duration;
 import static com.arcac.managerkobo.util.ReadingFormat.textOr;
+import static com.arcac.managerkobo.util.ReadingFormat.hasReliableReadingPace;
+import static com.arcac.managerkobo.util.ReadingFormat.wordsPerMinute;
 
 /** Primera versión de la pantalla interactiva de estadísticas avanzadas. */
 public class AdvancedStatisticsPanel extends JPanel {
     private static final int MAX_VISIBLE_VALUES = 5;
+    private static final int PAGE_HEADER_HEIGHT = 124;
 
     private final ReadingStatistics statistics;
     private final JComboBox<ChartType> chartSelector = new JComboBox<>(ChartType.values());
@@ -59,6 +62,7 @@ public class AdvancedStatisticsPanel extends JPanel {
 
     private JPanel createHeader() {
         JPanel header = verticalPanel();
+        header.setPreferredSize(new Dimension(0, PAGE_HEADER_HEIGHT));
         header.setBorder(new EmptyBorder(30, 32, 22, 32));
         header.add(label("Estadísticas", 29, Font.BOLD, AppTheme.TEXT));
         header.add(Box.createVerticalStrut(5));
@@ -89,7 +93,14 @@ public class AdvancedStatisticsPanel extends JPanel {
         RoundedPanel chartCard = new RoundedPanel(18, AppTheme.PANEL);
         chartCard.setLayout(new BorderLayout());
         chartCard.setBorder(new EmptyBorder(18, 18, 14, 18));
-        chartCard.add(chart, BorderLayout.CENTER);
+        JScrollPane chartScroll = new JScrollPane(chart);
+        chartScroll.setBorder(null);
+        chartScroll.setOpaque(false);
+        chartScroll.getViewport().setOpaque(false);
+        chartScroll.setHorizontalScrollBarPolicy(
+                ScrollPaneConstants.HORIZONTAL_SCROLLBAR_NEVER);
+        chartScroll.getVerticalScrollBar().setUnitIncrement(18);
+        chartCard.add(chartScroll, BorderLayout.CENTER);
         chartCard.setPreferredSize(new Dimension(600, 330));
         chartCard.setMaximumSize(new Dimension(Integer.MAX_VALUE, 330));
         chartCard.setAlignmentX(LEFT_ALIGNMENT);
@@ -121,22 +132,11 @@ public class AdvancedStatisticsPanel extends JPanel {
 
         switch (selected) {
             case READING_BY_AUTHOR -> showReadingByAuthor();
-            case HIGHLIGHTS_BY_AUTHOR -> showHighlightsByAuthor();
             case READING_BY_BOOK -> showReadingByBook();
             case HIGHLIGHTS_BY_BOOK -> showHighlightsByBook();
-            case HIGHLIGHT_DENSITY -> showHighlightDensity();
-            case BOOKS_BY_LANGUAGE -> showBooksByLanguage();
-            case READING_PROGRESS -> showReadingProgress();
-            case HIGHLIGHTS_BY_MONTH -> showMonthly(
-                    statistics.highlightsByMonth(), AppTheme.ORANGE,
-                    "subrayados");
-            case NOTES_BY_MONTH -> showMonthly(
-                    statistics.notesByMonth(), AppTheme.GREEN, "notas");
+            case READING_SPEED_BY_BOOK -> showReadingSpeedByBook();
             case WORDS_BY_MONTH -> showMonthly(
                     statistics.wordsByMonth(), AppTheme.BLUE, "palabras");
-            case FINISHED_BOOKS_BY_MONTH -> showMonthly(
-                    statistics.finishedBooksByMonth(), AppTheme.PURPLE,
-                    "libros");
         }
     }
 
@@ -147,16 +147,6 @@ public class AdvancedStatisticsPanel extends JPanel {
                         entry.getKey(), entry.getValue(), duration(entry.getValue())))
                 .toList();
         chart.setValues(values, AppTheme.BLUE);
-    }
-
-    private void showHighlightsByAuthor() {
-        List<BarValue> values = statistics.highlightsByAuthor().entrySet().stream()
-                .limit(MAX_VISIBLE_VALUES)
-                .map(entry -> new BarValue(
-                        entry.getKey(), entry.getValue(),
-                        entry.getValue() + " subrayados"))
-                .toList();
-        chart.setValues(values, AppTheme.ORANGE);
     }
 
     private void showReadingByBook() {
@@ -181,43 +171,23 @@ public class AdvancedStatisticsPanel extends JPanel {
         chart.setValues(values, AppTheme.ORANGE);
     }
 
-    private void showHighlightDensity() {
-        List<BarValue> values = statistics.highlightDensityByBook()
-                .entrySet().stream()
-                .limit(MAX_VISIBLE_VALUES)
-                .map(entry -> new BarValue(
-                        textOr(entry.getKey().getTitle(), "Sin título"),
-                        entry.getValue(),
-                        String.format("%.1f / h", entry.getValue())))
+    private void showReadingSpeedByBook() {
+        List<BarValue> values = statistics.booksByReadingTime().stream()
+                .sorted(Comparator.comparingDouble((Book book) ->
+                        hasReliableReadingPace(book) ? wordsPerMinute(book) : -1)
+                        .reversed())
+                .map(book -> {
+                    boolean reliable = hasReliableReadingPace(book);
+                    double pace = reliable ? wordsPerMinute(book) : 0;
+                    return new BarValue(
+                            textOr(book.getTitle(), "Sin título"), pace,
+                            reliable ? Math.round(pace) + " ppm" : "Sin datos");
+                })
                 .toList();
         chart.setValues(values, AppTheme.GREEN);
     }
 
-    private void showBooksByLanguage() {
-        int total = Math.max(1, statistics.totalBooks());
-        List<BarValue> values = statistics.booksByLanguage().entrySet().stream()
-                .limit(MAX_VISIBLE_VALUES)
-                .map(entry -> new BarValue(
-                        I18n.text(entry.getKey()),
-                        entry.getValue(),
-                        entry.getValue() + " · "
-                                + Math.round(entry.getValue() * 100.0 / total) + "%"))
-                .toList();
-        chart.setValues(values, AppTheme.BLUE, total);
-    }
-
-    private void showReadingProgress() {
-        List<BarValue> values = statistics.inProgressBooks().stream()
-                .limit(MAX_VISIBLE_VALUES)
-                .map(book -> new BarValue(
-                        textOr(book.getTitle(), "Sin título"),
-                        book.getPercentRead(),
-                        book.getPercentRead() + "%"))
-                .toList();
-        chart.setValues(values, AppTheme.PURPLE, 100);
-    }
-
-    private void showMonthly(Map<String, Integer> monthlyValues,
+    private void showMonthly(java.util.Map<String, Integer> monthlyValues,
             Color color, String unit) {
         int skip = Math.max(0, monthlyValues.size() - MAX_VISIBLE_VALUES);
         List<BarValue> values = monthlyValues.entrySet().stream()
@@ -246,16 +216,10 @@ public class AdvancedStatisticsPanel extends JPanel {
 
     private enum ChartType {
         READING_BY_AUTHOR("Tiempo de lectura por autor"),
-        HIGHLIGHTS_BY_AUTHOR("Subrayados por autor"),
         READING_BY_BOOK("Tiempo de lectura por libro"),
         HIGHLIGHTS_BY_BOOK("Subrayados por libro"),
-        HIGHLIGHT_DENSITY("Densidad de subrayados por libro"),
-        BOOKS_BY_LANGUAGE("Libros por idioma"),
-        READING_PROGRESS("Progreso de libros en curso"),
-        HIGHLIGHTS_BY_MONTH("Subrayados por mes"),
-        NOTES_BY_MONTH("Notas por mes"),
-        WORDS_BY_MONTH("Palabras consultadas por mes"),
-        FINISHED_BOOKS_BY_MONTH("Libros finalizados por mes (estimado)");
+        READING_SPEED_BY_BOOK("Velocidad de lectura por libro"),
+        WORDS_BY_MONTH("Palabras consultadas por mes");
 
         private final String label;
 

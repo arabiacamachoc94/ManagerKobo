@@ -21,15 +21,6 @@ public class Bookmark {
 
     public Bookmark() { }
 
-    public Bookmark(String bookmarkId, String volumeId, String text,
-                    String userNote, String dateCreated) {
-        this.bookmarkId = bookmarkId;
-        this.volumeId = volumeId;
-        this.text = text;
-        this.userNote = userNote;
-        this.dateCreated = dateCreated;
-    }
-
     public boolean isHighlight() { return "highlight".equalsIgnoreCase(type); }
     public boolean hasUserNote() { return userNote != null && !userNote.isBlank(); }
 

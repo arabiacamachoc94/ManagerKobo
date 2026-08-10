@@ -29,6 +29,7 @@ public class Book {
     private double currentChapterProgress;
     private int restOfBookEstimate;
     private int currentChapterEstimate;
+    private int wordCount;
 
     public Book() { }
 
@@ -47,8 +48,6 @@ public class Book {
 
     public int getMinutesRead() { return secondsRead / 60; }
     public double getHoursRead() { return secondsRead / 3600.0; }
-
-    public void setMinutesRead(int minutesRead) { this.secondsRead = Math.max(0, minutesRead) * 60; }
 
     public String getContentId() { return contentId; }
     public void setContentId(String contentId) { this.contentId = contentId; }
@@ -98,6 +97,8 @@ public class Book {
     public void setRestOfBookEstimate(int value) { this.restOfBookEstimate = value; }
     public int getCurrentChapterEstimate() { return currentChapterEstimate; }
     public void setCurrentChapterEstimate(int value) { this.currentChapterEstimate = value; }
+    public int getWordCount() { return wordCount; }
+    public void setWordCount(int value) { this.wordCount = Math.max(0, value); }
 
     @Override
     public String toString() {

@@ -3,6 +3,7 @@ package com.arcac.managerkobo.ui.panels;
 import com.arcac.managerkobo.ai.GeminiApiKeyStore;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.components.RoundedButton;
+import com.arcac.managerkobo.ui.components.RoundedPanel;
 import com.arcac.managerkobo.ui.util.AppPreferences;
 import com.arcac.managerkobo.ui.util.I18n;
 import java.awt.BorderLayout;
@@ -13,6 +14,7 @@ import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
 import java.awt.Insets;
+import java.awt.Rectangle;
 import javax.swing.JButton;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -21,10 +23,15 @@ import javax.swing.JLabel;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPasswordField;
+import javax.swing.JScrollPane;
+import javax.swing.Scrollable;
 import javax.swing.border.EmptyBorder;
 
 /** Pantalla minimalista de preferencias. */
 public class SettingsPanel extends JPanel {
+    private static final int PAGE_HEADER_HEIGHT = 124;
+    private static final Dimension SETTINGS_BUTTON_SIZE =
+            new Dimension(116, 36);
     private final Runnable applyAction;
     private final JLabel apiStatus = valueLabel();
     private final JButton apiButton = button("Introducir", AppTheme.PURPLE);
@@ -42,6 +49,10 @@ public class SettingsPanel extends JPanel {
         setBackground(AppTheme.BACKGROUND);
         add(createHeader(), BorderLayout.NORTH);
         add(createContent(), BorderLayout.CENTER);
+        setSettingsButtonSize(apiButton);
+        setSettingsButtonSize(applyButton);
+        setSettingsControlSize(language);
+        setSettingsControlSize(theme);
         configureActions();
         refreshState();
     }
@@ -49,6 +60,7 @@ public class SettingsPanel extends JPanel {
     private JPanel createHeader() {
         JPanel header = new JPanel(new BorderLayout(0, 5));
         header.setOpaque(false);
+        header.setPreferredSize(new Dimension(0, PAGE_HEADER_HEIGHT));
         header.setBorder(new EmptyBorder(30, 32, 22, 32));
         header.add(label("Ajustes", 29, Font.BOLD, AppTheme.TEXT), BorderLayout.NORTH);
         header.add(label("Preferencias de Kobo Manager", 14, Font.PLAIN,
@@ -61,8 +73,8 @@ public class SettingsPanel extends JPanel {
         body.setOpaque(false);
         body.setBorder(new EmptyBorder(4, 32, 30, 32));
 
-        JPanel card = new JPanel(new GridBagLayout());
-        card.setBackground(AppTheme.PANEL);
+        JPanel card = new RoundedPanel(18, AppTheme.PANEL);
+        card.setLayout(new GridBagLayout());
         card.setBorder(new EmptyBorder(8, 22, 8, 22));
         addRow(card, 0, "API de Gemini", apiStatus, apiButton);
         addSeparator(card, 1);
@@ -70,30 +82,41 @@ public class SettingsPanel extends JPanel {
         addSeparator(card, 3);
         addRow(card, 4, "Tema", valueLabel(""), theme);
 
-        JPanel holder = new JPanel(new BorderLayout());
-        holder.setOpaque(false);
-        JPanel cards = new JPanel();
+        JPanel cards = new ScrollableSettingsContent();
         cards.setOpaque(false);
         cards.setLayout(new BoxLayout(cards, BoxLayout.Y_AXIS));
+        cards.setBorder(new EmptyBorder(0, 0, 0, 10));
         card.setAlignmentX(LEFT_ALIGNMENT);
         cards.add(card);
         cards.add(Box.createVerticalStrut(18));
         JPanel about = createAboutPanel();
         about.setAlignmentX(LEFT_ALIGNMENT);
         cards.add(about);
-        holder.add(cards, BorderLayout.NORTH);
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 16));
+        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 8));
         actions.setOpaque(false);
+        actions.setBorder(new EmptyBorder(8, 0, 0, 30));
         actions.add(applyButton);
-        holder.add(actions, BorderLayout.SOUTH);
-        body.add(holder, BorderLayout.CENTER);
+        actions.setAlignmentX(LEFT_ALIGNMENT);
+        actions.setMaximumSize(new Dimension(
+                Integer.MAX_VALUE, actions.getPreferredSize().height));
+        cards.add(actions);
+
+        JScrollPane scroll = new JScrollPane(cards);
+        scroll.setBorder(null);
+        scroll.setOpaque(false);
+        scroll.getViewport().setOpaque(false);
+        scroll.setHorizontalScrollBarPolicy(
+                JScrollPane.HORIZONTAL_SCROLLBAR_NEVER);
+        scroll.setVerticalScrollBarPolicy(
+                JScrollPane.VERTICAL_SCROLLBAR_AS_NEEDED);
+        scroll.getVerticalScrollBar().setUnitIncrement(18);
+        body.add(scroll, BorderLayout.CENTER);
         return body;
     }
 
     private JPanel createAboutPanel() {
-        JPanel about = new JPanel();
+        JPanel about = new RoundedPanel(18, AppTheme.PANEL);
         about.setLayout(new BoxLayout(about, BoxLayout.Y_AXIS));
-        about.setBackground(AppTheme.PANEL);
         about.setBorder(new EmptyBorder(22, 30, 22, 30));
         about.setMaximumSize(new Dimension(Integer.MAX_VALUE, 270));
 
@@ -154,6 +177,21 @@ public class SettingsPanel extends JPanel {
         left.weightx = 0.28;
         panel.add(label(title, 14, Font.BOLD, AppTheme.TEXT), left);
 
+        if (control == apiButton) {
+            JPanel apiControls = new JPanel();
+            apiControls.setOpaque(false);
+            apiControls.setLayout(new BoxLayout(apiControls, BoxLayout.X_AXIS));
+            apiControls.add(Box.createHorizontalGlue());
+            apiControls.add(description);
+            apiControls.add(Box.createHorizontalStrut(8));
+            apiControls.add(control);
+            GridBagConstraints combined = constraints(1, row);
+            combined.gridwidth = 2;
+            combined.weightx = 0.72;
+            panel.add(apiControls, combined);
+            return;
+        }
+
         GridBagConstraints center = constraints(1, row);
         center.weightx = 0.52;
         panel.add(description, center);
@@ -161,6 +199,9 @@ public class SettingsPanel extends JPanel {
         GridBagConstraints right = constraints(2, row);
         right.weightx = 0.20;
         right.anchor = GridBagConstraints.EAST;
+        if (control instanceof JButton || control instanceof JComboBox<?>) {
+            right.fill = GridBagConstraints.NONE;
+        }
         panel.add(control, right);
     }
 
@@ -181,7 +222,7 @@ public class SettingsPanel extends JPanel {
         constraints.gridy = row;
         constraints.fill = GridBagConstraints.HORIZONTAL;
         constraints.anchor = GridBagConstraints.WEST;
-        constraints.insets = new Insets(18, 8, 18, 8);
+        constraints.insets = new Insets(10, 8, 10, 8);
         return constraints;
     }
 
@@ -193,7 +234,7 @@ public class SettingsPanel extends JPanel {
     private void editApiKey() {
         if (GeminiApiKeyStore.comesFromEnvironment()) {
             JOptionPane.showMessageDialog(this,
-                    "La clave procede de GEMINI_API_KEY y debe modificarse desde Windows.",
+                    I18n.text("La clave procede de GEMINI_API_KEY y debe modificarse desde Windows."),
                     "Gemini", JOptionPane.INFORMATION_MESSAGE);
             return;
         }
@@ -201,18 +242,18 @@ public class SettingsPanel extends JPanel {
         boolean configured = !GeminiApiKeyStore.get().isBlank();
         JPasswordField field = new JPasswordField(30);
         String[] options = configured
-                ? new String[]{"Guardar", "Eliminar", "Cancelar"}
-                : new String[]{"Guardar", "Cancelar"};
+                ? new String[]{I18n.text("Guardar"), I18n.text("Eliminar"), I18n.text("Cancelar")}
+                : new String[]{I18n.text("Guardar"), I18n.text("Cancelar")};
         int result = JOptionPane.showOptionDialog(this, field,
-                configured ? "Modificar API key" : "Introducir API key",
+                I18n.text(configured ? "Modificar API key" : "Introducir API key"),
                 JOptionPane.DEFAULT_OPTION, JOptionPane.PLAIN_MESSAGE,
                 null, options, options[0]);
 
         if (result == 0) {
             String key = new String(field.getPassword()).strip();
             if (key.isBlank()) {
-                JOptionPane.showMessageDialog(this, "Introduce una clave API.",
-                        "Clave vacía", JOptionPane.WARNING_MESSAGE);
+                JOptionPane.showMessageDialog(this, I18n.text("Introduce una clave API."),
+                        I18n.text("Clave vacía"), JOptionPane.WARNING_MESSAGE);
                 return;
             }
             GeminiApiKeyStore.save(key);
@@ -269,5 +310,38 @@ public class SettingsPanel extends JPanel {
         button.setFocusPainted(false);
         button.setBorder(new EmptyBorder(9, 14, 9, 14));
         return button;
+    }
+
+    private void setSettingsButtonSize(JButton button) {
+        button.setPreferredSize(SETTINGS_BUTTON_SIZE);
+        button.setMinimumSize(SETTINGS_BUTTON_SIZE);
+        button.setMaximumSize(SETTINGS_BUTTON_SIZE);
+    }
+
+    private void setSettingsControlSize(javax.swing.JComponent control) {
+        control.setPreferredSize(SETTINGS_BUTTON_SIZE);
+        control.setMinimumSize(SETTINGS_BUTTON_SIZE);
+        control.setMaximumSize(SETTINGS_BUTTON_SIZE);
+    }
+
+    private static final class ScrollableSettingsContent extends JPanel
+            implements Scrollable {
+        @Override public Dimension getPreferredScrollableViewportSize() {
+            return getPreferredSize();
+        }
+        @Override public int getScrollableUnitIncrement(
+                Rectangle visibleRect, int orientation, int direction) {
+            return 18;
+        }
+        @Override public int getScrollableBlockIncrement(
+                Rectangle visibleRect, int orientation, int direction) {
+            return Math.max(80, visibleRect.height - 40);
+        }
+        @Override public boolean getScrollableTracksViewportWidth() {
+            return true;
+        }
+        @Override public boolean getScrollableTracksViewportHeight() {
+            return false;
+        }
     }
 }

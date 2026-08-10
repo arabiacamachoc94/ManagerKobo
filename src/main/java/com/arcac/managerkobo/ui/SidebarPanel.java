@@ -13,6 +13,8 @@ import java.awt.RenderingHints;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.function.Consumer;
+import java.time.LocalDateTime;
+import java.time.format.DateTimeFormatter;
 import javax.swing.BorderFactory;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
@@ -34,6 +36,7 @@ public class SidebarPanel extends JPanel {
     private final Consumer<String> navigationAction;
     private final List<JButton> buttons = new ArrayList<>();
     private final JLabel connectionStatus = new JLabel();
+    private final JLabel synchronizationStatus = new JLabel();
     private final JButton syncButton = new CircularButton();
 
     public SidebarPanel(Consumer<String> navigationAction,
@@ -132,12 +135,33 @@ public class SidebarPanel extends JPanel {
     }
 
     private JPanel createFooter() {
-        JPanel footer = new JPanel(new BorderLayout());
+        JPanel footer = new JPanel();
+        footer.setLayout(new BoxLayout(footer, BoxLayout.Y_AXIS));
         footer.setOpaque(false);
         footer.setBorder(new EmptyBorder(14, 22, 22, 10));
-        footer.add(syncButton, BorderLayout.WEST);
-        footer.add(connectionStatus, BorderLayout.CENTER);
+        JPanel statusRow = new JPanel(new BorderLayout());
+        statusRow.setOpaque(false);
+        statusRow.setAlignmentX(LEFT_ALIGNMENT);
+        statusRow.setMaximumSize(new Dimension(Integer.MAX_VALUE, 36));
+        statusRow.add(syncButton, BorderLayout.WEST);
+        statusRow.add(connectionStatus, BorderLayout.CENTER);
+        footer.add(statusRow);
+        footer.add(Box.createVerticalStrut(5));
+        synchronizationStatus.setFont(AppTheme.font(Font.PLAIN, 11));
+        synchronizationStatus.setForeground(AppTheme.MUTED_TEXT);
+        synchronizationStatus.setAlignmentX(LEFT_ALIGNMENT);
+        footer.add(synchronizationStatus);
         return footer;
+    }
+
+    public void setLastSynchronization(LocalDateTime date) {
+        synchronizationStatus.setText(date == null
+                ? (AppPreferences.isEnglish()
+                        ? "Last sync: unavailable"
+                        : "Última sincronización: no disponible")
+                : (AppPreferences.isEnglish() ? "Last sync: " : "Última: ")
+                        + date.format(DateTimeFormatter.ofPattern(
+                                "dd/MM/yyyy · HH:mm")));
     }
 
     public void setSyncing(boolean syncing) {

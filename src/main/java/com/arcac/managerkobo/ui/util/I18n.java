@@ -36,18 +36,35 @@ public final class I18n {
         add("Mi Biblioteca", "My Library"); add("Biblioteca", "Library");
         add("Resumen", "Overview");
         add("Subrayados", "Highlights"); add("Palabras", "Words");
+        add("palabra", "word"); add("palabras", "words");
+        add("No se encontraron palabras.", "No words were found.");
         add("Estadísticas", "Statistics");
         add("Explora los patrones encontrados en tu biblioteca", "Explore the patterns found in your library");
         add("Explora tus estadísticas", "Explore your statistics");
         add("Tu biblioteca de un vistazo", "Your library at a glance");
         add("Terminados este año", "Finished this year");
         add("Ritmo mensual", "Monthly pace");
+        add("Ritmo de lectura", "Reading pace");
+        add("Ritmo de lectura (ppm)", "Reading pace (wpm)");
+        add("ppm", "wpm");
         add("Proyección anual", "Annual projection");
         add("autor con más tiempo", "author with the most reading time");
         add("libro más subrayado", "most-highlighted book");
         add("media por libro", "average per book");
         add("lectura activa", "current read");
         add("lecturas activas", "current reads");
+        add("libro que has leído más rápido", "book you read the fastest");
+        add("libro leído más lento", "slowest-read book");
+        add("Aún no hay datos suficientes para calcular el libro leído más rápido.",
+                "There is not enough data yet to calculate the fastest-read book.");
+        add("Aún no hay datos suficientes para calcular el libro leído más lento.",
+                "There is not enough data yet to calculate the slowest-read book.");
+        add("Aún no hay datos suficientes para comparar tu ritmo de lectura.",
+                "There is not enough data yet to compare your reading pace.");
+        add("ritmo de lectura", "reading pace");
+        add("ritmo de lectura estimado es lento", "estimated reading pace is slow");
+        add("ritmo de lectura estimado es normal", "estimated reading pace is typical");
+        add("ritmo de lectura estimado es rápido", "estimated reading pace is fast");
         add("Estimación basada en los libros terminados que tienen fecha registrada.",
                 "Estimate based on finished books with a recorded date.");
         add("Lecturas en curso", "Current reads"); add("Lectura actual", "Current read");
@@ -69,6 +86,7 @@ public final class I18n {
         add("Progreso de lecturas activas", "Current reading progress");
         add("Libros finalizados por mes (estimado)", "Books finished per month (estimated)");
         add("Tiempo de lectura por libro", "Reading time by book");
+        add("Velocidad de lectura por libro", "Reading speed by book");
         add("Tiempo de lectura por autor", "Reading time by author");
         add("Subrayados por libro", "Highlights by book"); add("Subrayados por autor", "Highlights by author");
         add("Subrayados por mes", "Highlights by month"); add("Notas por mes", "Notes by month");
@@ -81,6 +99,7 @@ public final class I18n {
         add("Última lectura", "Last read"); add("Último inicio registrado", "Last recorded start");
         add("Primer subrayado", "First highlight"); add("Último subrayado", "Last highlight");
         add("Subrayados por hora", "Highlights per hour");
+        add("Velocidad de lectura", "Reading speed");
         add("Notas", "Notes"); add("% leído", "% read");
         add("Menos del 25%", "Under 25%"); add("75% o más", "75% or more");
         add("Formato de exportación", "Export format");
@@ -111,6 +130,14 @@ public final class I18n {
         add("Generando resumen...", "Generating summary...");
         add("Resumen generado correctamente.", "Summary generated successfully.");
         add("La petición ha fallado.", "The request failed.");
+        add("No se pudo generar la respuesta.", "The response could not be generated.");
+        add("Se enviarán ", "The selected ");
+        add(" subrayados seleccionados a la API de Gemini.",
+                " highlights will be sent to the Gemini API.");
+        add("Preparado: clave cargada desde GEMINI_API_KEY.",
+                "Ready: key loaded from GEMINI_API_KEY.");
+        add("Preparado: clave guardada en la aplicación.",
+                "Ready: key saved in the application.");
         add("Respuesta copiada al portapapeles.", "Response copied to the clipboard.");
         add("Sin datos", "No data"); add("Sin empezar", "Not started");
         add("Leyendo", "Reading"); add("Terminado", "Finished"); add("Terminados", "Finished");
@@ -119,12 +146,40 @@ public final class I18n {
         add("Filtrar ▾", "Filter ▾"); add("Seleccionar", "Select");
         add("Filtrar", "Filter");
         add("Cancelar", "Cancel"); add("Limpiar", "Clear"); add("Copiar", "Copy");
+        add("Texto", "Text"); add("Copiar subrayados", "Copy highlights");
+        add(" subrayados copiados al portapapeles.", " highlights copied to the clipboard.");
+        add(" subrayados exportados en ", " highlights exported as ");
+        add(" correctamente.", " successfully.");
         add("Exportar", "Export"); add("Aplicar filtros", "Apply filters");
         add("Desmarcar todos los subrayados", "Clear all selected highlights");
         add("Exportar los subrayados seleccionados", "Export selected highlights");
         add("Exportar imagen", "Export image");
+        add("Exportar TXT", "Export TXT");
+        add("Exportar palabras", "Export words");
+        add("Exportar resumen", "Export overview");
+        add("Exportar una lista simple de palabras", "Export a simple word list");
+        add("Archivo de texto", "Text file");
+        add("Documento PDF", "PDF document");
+        add("Generar informe PDF", "Generate PDF report");
+        add("No hay datos para exportar.", "There is no data to export.");
+        add("Exportación no disponible", "Export unavailable");
+        add("No hay una base de datos con información de lectura para exportar.",
+                "There is no database with reading data to export.");
+        add("El archivo ya existe. ¿Quieres reemplazarlo?",
+                "The file already exists. Do you want to replace it?");
+        add("Resumen exportado correctamente en:", "Overview exported successfully to:");
+        add("Informe PDF generado correctamente en:", "PDF report generated successfully to:");
+        add("Palabras exportadas correctamente en:", "Words exported successfully to:");
+        add("No se pudo exportar el resumen: ", "The overview could not be exported: ");
+        add("No se pudo generar el informe: ", "The report could not be generated: ");
+        add("No se pudo crear el archivo: ", "The file could not be created: ");
+        add("El PDF se ha guardado, pero sin el análisis de IA.",
+                "The PDF was saved, but without the AI analysis.");
+        add("Guardado en:", "Saved to:");
+        add("Informe generado sin IA", "Report generated without AI");
         add("Informe PDF", "PDF report");
         add("Exportando...", "Exporting...");
+        add("Generando...", "Generating...");
         add("Generando PDF...", "Generating PDF...");
         add("✓ API key guardada", "✓ API key saved");
         add("Incluir análisis final generado con Gemini",
@@ -137,6 +192,13 @@ public final class I18n {
         add("Imagen JPEG", "JPEG image");
         add("Limpiar filtros", "Clear filters"); add("Con subrayados", "With highlights");
         add("No se encontraron subrayados.", "No highlights found.");
+        add("Exportar todos los subrayados", "Export all highlights");
+        add("Selecciona uno o varios subrayados para usar Gemini.",
+                "Select one or more highlights to use Gemini.");
+        add("Selecciona uno o varios subrayados para copiarlos.",
+                "Select one or more highlights to copy them.");
+        add("No hay subrayados para exportar en esta opción.",
+                "There are no highlights to export with this option.");
         add("Exportar resultados visibles", "Export visible results"); add("Exportar todos", "Export all");
         add("Cargando...", "Loading...");
         add("Buscar título o autor...", "Search by title or author...");
@@ -147,6 +209,12 @@ public final class I18n {
         add("No hay información de idiomas", "No language information");
         add("Sincronización", "Synchronization");
         add("Error de sincronización", "Synchronization error");
+        add("La clave procede de GEMINI_API_KEY y debe modificarse desde Windows.",
+                "The key comes from GEMINI_API_KEY and must be changed in Windows.");
+        add("Modificar API key", "Change API key");
+        add("Introducir API key", "Enter API key");
+        add("Introduce una clave API.", "Enter an API key.");
+        add("Clave vacía", "Empty key");
         add("No se pudo sincronizar la base de datos: ",
                 "The database could not be synchronized: ");
         add("subrayados", "highlights"); add("notas", "notes");
@@ -191,6 +259,17 @@ public final class I18n {
                 .replace(" · Sin empezar", " · Not started")
                 .replace("El autor con más tiempo de lectura es ", "The author with the most reading time is ")
                 .replace("El libro más subrayado es ", "The most-highlighted book is ")
+                .replace("El libro que has leído más rápido es ",
+                        "The book you read the fastest is ")
+                .replace("El libro leído más lento es ",
+                        "The slowest-read book is ")
+                .replace("Tu ritmo de lectura estimado es lento frente al rango adulto de referencia.",
+                        "Your estimated reading pace is slow compared with the adult reference range.")
+                .replace("Tu ritmo de lectura estimado es normal frente al rango adulto de referencia.",
+                        "Your estimated reading pace is typical compared with the adult reference range.")
+                .replace("Tu ritmo de lectura estimado es rápido frente al rango adulto de referencia.",
+                        "Your estimated reading pace is fast compared with the adult reference range.")
+                .replace(" palabras por minuto.", " words per minute.")
                 .replace("La media por libro terminado es de ", "The average per finished book is ")
                 .replace("Aún no hay datos sobre el tiempo de lectura por autor.",
                         "There is no reading-time data by author yet.")

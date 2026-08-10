@@ -14,6 +14,7 @@ import com.arcac.managerkobo.ui.components.RoundedPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.util.IconLoader;
 import com.arcac.managerkobo.ui.util.I18n;
+import com.arcac.managerkobo.ui.util.UiStyles;
 import com.arcac.managerkobo.ui.util.AppPreferences;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -28,19 +29,18 @@ import java.awt.event.ComponentEvent;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
 import java.nio.file.Path;
 import java.util.List;
 import java.util.function.Consumer;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
-import javax.swing.BorderFactory;
 import javax.swing.JButton;
 import javax.swing.JLabel;
 import javax.swing.JFileChooser;
 import javax.swing.JCheckBox;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.Scrollable;
@@ -51,6 +51,7 @@ import javax.swing.filechooser.FileNameExtensionFilter;
 
 /** Resumen principal de la actividad de lectura. */
 public class DashboardPanel extends JPanel {
+    private static final int PAGE_HEADER_HEIGHT = 124;
     private final ReadingStatistics statistics;
     private final Consumer<Book> openBookAction;
     private final LocalDateTime lastSynchronization;
@@ -62,6 +63,7 @@ public class DashboardPanel extends JPanel {
             new ReadingInsightsAiService();
     private JButton imageExportButton;
     private JButton pdfExportButton;
+    private final JProgressBar exportProgress = new JProgressBar();
 
     public DashboardPanel(ReadingStatistics statistics,
             Consumer<Book> openBookAction,
@@ -78,18 +80,13 @@ public class DashboardPanel extends JPanel {
     private JPanel createHeader() {
         JPanel header = new JPanel(new BorderLayout(20, 0));
         header.setOpaque(false);
-        header.setBorder(BorderFactory.createCompoundBorder(
-                BorderFactory.createMatteBorder(
-                        0, 0, 1, 0, AppTheme.BORDER),
-                new EmptyBorder(30, 32, 22, 32)));
+        header.setPreferredSize(new Dimension(0, PAGE_HEADER_HEIGHT));
+        header.setBorder(new EmptyBorder(30, 32, 22, 32));
 
         JPanel titles = verticalPanel();
         titles.add(label("Resumen", 29, Font.BOLD, AppTheme.TEXT));
         titles.add(Box.createVerticalStrut(5));
         titles.add(label(librarySummary(), 14, Font.PLAIN, AppTheme.MUTED_TEXT));
-        titles.add(Box.createVerticalStrut(4));
-        titles.add(label(lastSynchronizationText(),
-                12, Font.PLAIN, AppTheme.MUTED_TEXT));
         header.add(titles, BorderLayout.CENTER);
 
         JLabel logo = new JLabel();
@@ -102,32 +99,49 @@ public class DashboardPanel extends JPanel {
         pdfExportButton = new RoundedButton("Informe PDF");
         styleSecondaryButton(pdfExportButton);
         pdfExportButton.addActionListener(event -> exportPdfReport());
+        String exportTooltip = hasReportData()
+                ? null : I18n.text("No hay datos para exportar.");
+        imageExportButton.setToolTipText(exportTooltip);
+        pdfExportButton.setToolTipText(exportTooltip);
 
         JPanel headerActions = new JPanel(new java.awt.FlowLayout(
-                java.awt.FlowLayout.RIGHT, 12, 10));
+                java.awt.FlowLayout.RIGHT, 12, 0));
         headerActions.setOpaque(false);
         headerActions.add(imageExportButton);
         headerActions.add(pdfExportButton);
         headerActions.add(logo);
-        header.add(headerActions, BorderLayout.EAST);
+        exportProgress.setIndeterminate(true);
+        exportProgress.setVisible(false);
+        exportProgress.setPreferredSize(new Dimension(0, 4));
+        exportProgress.setBorder(null);
+
+        JPanel exportArea = new JPanel(new BorderLayout(0, 8));
+        exportArea.setOpaque(false);
+        exportArea.add(headerActions, BorderLayout.CENTER);
+        exportArea.add(exportProgress, BorderLayout.SOUTH);
+        header.add(exportArea, BorderLayout.EAST);
 
         return header;
     }
 
     private void exportSummary() {
+        if (!ensureReportData()) return;
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Exportar resumen");
+        chooser.setDialogTitle(I18n.text("Exportar resumen"));
+        chooser.setApproveButtonText(I18n.text("Exportar"));
+        I18n.translateTree(chooser);
         chooser.setSelectedFile(new java.io.File(
                 "resumen_kobo.jpg"));
-        chooser.setFileFilter(new FileNameExtensionFilter("Imagen JPEG", "jpg", "jpeg"));
+        chooser.setFileFilter(new FileNameExtensionFilter(
+                I18n.text("Imagen JPEG"), "jpg", "jpeg"));
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
 
         Path destination = ensureExtension(
                 chooser.getSelectedFile().toPath(), ".jpg");
         if (destination.toFile().exists()) {
             int answer = JOptionPane.showConfirmDialog(this,
-                    "El archivo ya existe. ¿Quieres reemplazarlo?",
-                    "Confirmar exportación", JOptionPane.YES_NO_OPTION);
+                    I18n.text("El archivo ya existe. ¿Quieres reemplazarlo?"),
+                    I18n.text("Confirmar exportación"), JOptionPane.YES_NO_OPTION);
             if (answer != JOptionPane.YES_OPTION) return;
         }
 
@@ -147,15 +161,15 @@ public class DashboardPanel extends JPanel {
                 try {
                     get();
                     JOptionPane.showMessageDialog(DashboardPanel.this,
-                            "Resumen exportado correctamente en:\n"
+                            I18n.text("Resumen exportado correctamente en:") + "\n"
                                     + destination.toAbsolutePath(),
-                            "Exportación completada",
+                            I18n.text("Exportación completada"),
                             JOptionPane.INFORMATION_MESSAGE);
                 } catch (Exception exception) {
                     JOptionPane.showMessageDialog(DashboardPanel.this,
-                            "No se pudo exportar el resumen: "
+                            I18n.text("No se pudo exportar el resumen: ")
                                     + rootMessage(exception),
-                            "Error de exportación", JOptionPane.ERROR_MESSAGE);
+                            I18n.text("Error de exportación"), JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setExportInProgress(false, null, null);
                 }
@@ -164,6 +178,7 @@ public class DashboardPanel extends JPanel {
     }
 
     private void exportPdfReport() {
+        if (!ensureReportData()) return;
         JCheckBox includeAi = new JCheckBox(
                 "Incluir análisis final generado con Gemini",
                 readingInsightsAiService.isConfigured());
@@ -186,17 +201,20 @@ public class DashboardPanel extends JPanel {
         boolean includeAiAnalysis = includeAi.isSelected();
 
         JFileChooser chooser = new JFileChooser();
-        chooser.setDialogTitle("Generar informe PDF");
+        chooser.setDialogTitle(I18n.text("Generar informe PDF"));
+        chooser.setApproveButtonText(I18n.text("Exportar"));
+        I18n.translateTree(chooser);
         chooser.setSelectedFile(new java.io.File("informe_lectura_kobo.pdf"));
-        chooser.setFileFilter(new FileNameExtensionFilter("Documento PDF", "pdf"));
+        chooser.setFileFilter(new FileNameExtensionFilter(
+                I18n.text("Documento PDF"), "pdf"));
         if (chooser.showSaveDialog(this) != JFileChooser.APPROVE_OPTION) return;
 
         Path destination = ensureExtension(
                 chooser.getSelectedFile().toPath(), ".pdf");
         if (destination.toFile().exists()) {
             int answer = JOptionPane.showConfirmDialog(this,
-                    "El archivo ya existe. ¿Quieres reemplazarlo?",
-                    "Confirmar exportación", JOptionPane.YES_NO_OPTION);
+                    I18n.text("El archivo ya existe. ¿Quieres reemplazarlo?"),
+                    I18n.text("Confirmar exportación"), JOptionPane.YES_NO_OPTION);
             if (answer != JOptionPane.YES_OPTION) return;
         }
 
@@ -225,22 +243,22 @@ public class DashboardPanel extends JPanel {
                 try {
                     String warning = get();
                     String message = warning == null
-                            ? "Informe PDF generado correctamente en:\n"
+                            ? I18n.text("Informe PDF generado correctamente en:") + "\n"
                                     + destination.toAbsolutePath()
-                            : "El PDF se ha guardado, pero sin el análisis de IA.\n\n"
-                                    + warning + "\n\n"
-                                    + "Guardado en:\n"
+                            : I18n.text("El PDF se ha guardado, pero sin el análisis de IA.") + "\n\n"
+                                    + I18n.text(warning) + "\n\n"
+                                    + I18n.text("Guardado en:") + "\n"
                                     + destination.toAbsolutePath();
                     JOptionPane.showMessageDialog(DashboardPanel.this, message,
-                            warning == null ? "Exportación completada"
-                                    : "Informe generado sin IA",
+                            warning == null ? I18n.text("Exportación completada")
+                                    : I18n.text("Informe generado sin IA"),
                             warning == null ? JOptionPane.INFORMATION_MESSAGE
                                     : JOptionPane.WARNING_MESSAGE);
                 } catch (Exception exception) {
                     JOptionPane.showMessageDialog(DashboardPanel.this,
-                            "No se pudo generar el informe: "
-                                    + rootMessage(exception),
-                            "Error de exportación", JOptionPane.ERROR_MESSAGE);
+                            I18n.text("No se pudo generar el informe: ")
+                                    + I18n.text(rootMessage(exception)),
+                            I18n.text("Error de exportación"), JOptionPane.ERROR_MESSAGE);
                 } finally {
                     setExportInProgress(false, null, null);
                 }
@@ -251,6 +269,19 @@ public class DashboardPanel extends JPanel {
     private Path ensureExtension(Path path, String extension) {
         return path.toString().toLowerCase().endsWith(extension)
                 ? path : Path.of(path + extension);
+    }
+
+    private boolean hasReportData() {
+        return statistics.totalBooks() > 0;
+    }
+
+    private boolean ensureReportData() {
+        if (hasReportData()) return true;
+        JOptionPane.showMessageDialog(this,
+                I18n.text("No hay una base de datos con información de lectura para exportar."),
+                I18n.text("Exportación no disponible"),
+                JOptionPane.WARNING_MESSAGE);
+        return false;
     }
 
     private void verifyExport(Path destination) throws IOException {
@@ -267,6 +298,7 @@ public class DashboardPanel extends JPanel {
                 ? I18n.text(progressText) : I18n.text("Exportar imagen"));
         pdfExportButton.setText(active == pdfExportButton
                 ? I18n.text(progressText) : I18n.text("Informe PDF"));
+        exportProgress.setVisible(exporting);
         setCursor(exporting
                 ? java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR)
                 : java.awt.Cursor.getDefaultCursor());
@@ -291,7 +323,7 @@ public class DashboardPanel extends JPanel {
 
         body.add(sectionTitle("Tu biblioteca de un vistazo"));
         body.add(Box.createVerticalStrut(13));
-        body.add(fullWidth(new LibraryOverviewPanel(statistics), 335));
+        body.add(fullWidth(new LibraryOverviewPanel(statistics), 398));
         body.add(Box.createVerticalStrut(24));
 
         body.add(createDonutCharts());
@@ -386,20 +418,8 @@ public class DashboardPanel extends JPanel {
                 + statistics.finishedBooks() + " terminados";
     }
 
-    private String lastSynchronizationText() {
-        if (lastSynchronization == null) {
-            return "Última sincronización: todavía no disponible";
-        }
-        DateTimeFormatter formatter = DateTimeFormatter.ofPattern("dd/MM/yyyy · HH:mm");
-        return "Última sincronización: " + lastSynchronization.format(formatter);
-    }
-
     private void styleSecondaryButton(JButton button) {
-        button.setBackground(AppTheme.PURPLE);
-        button.setForeground(Color.WHITE);
-        button.setFont(AppTheme.font(Font.BOLD, 12));
-        button.setFocusPainted(false);
-        button.setBorder(new EmptyBorder(8, 14, 8, 14));
+        UiStyles.actionButton(button, AppTheme.PURPLE);
     }
 
     private JPanel verticalPanel() {

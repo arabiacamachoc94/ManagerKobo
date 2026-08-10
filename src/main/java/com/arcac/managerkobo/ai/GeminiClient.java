@@ -1,5 +1,6 @@
 package com.arcac.managerkobo.ai;
 
+import com.arcac.managerkobo.ui.util.AppPreferences;
 import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
@@ -37,10 +38,12 @@ public class GeminiClient {
     public String generate(String prompt) {
         if (!isConfigured()) {
             throw new AiException(
-                    "Falta configurar la clave API de Gemini.");
+                    text("Falta configurar la clave API de Gemini.",
+                            "The Gemini API key has not been configured."));
         }
         if (prompt == null || prompt.isBlank()) {
-            throw new AiException("No hay contenido para enviar a Gemini.");
+            throw new AiException(text("No hay contenido para enviar a Gemini.",
+                    "There is no content to send to Gemini."));
         }
 
         String requestJson = """
@@ -64,7 +67,8 @@ public class GeminiClient {
             List<String> parts = jsonStrings(response.body(), "text");
             if (parts.isEmpty()) {
                 throw new AiException(
-                        "Gemini no devolvió una respuesta de texto.");
+                        text("Gemini no devolvió una respuesta de texto.",
+                                "Gemini did not return a text response."));
             }
             String result = String.join("\n", parts).strip();
             String finishReason = firstJsonString(
@@ -74,11 +78,13 @@ public class GeminiClient {
             throw exception;
         } catch (InterruptedException exception) {
             Thread.currentThread().interrupt();
-            throw new AiException("La petición a Gemini fue interrumpida.",
+            throw new AiException(text("La petición a Gemini fue interrumpida.",
+                            "The request to Gemini was interrupted."),
                     exception);
         } catch (Exception exception) {
             throw new AiException(
-                    "No se pudo conectar con Gemini: "
+                    text("No se pudo conectar con Gemini: ",
+                            "Could not connect to Gemini: ")
                             + rootMessage(exception), exception);
         }
     }
@@ -89,15 +95,23 @@ public class GeminiClient {
 
     private String apiErrorMessage(int statusCode) {
         return switch (statusCode) {
-            case 400 -> "Gemini no pudo procesar la solicitud.";
-            case 401, 403 -> "La clave API de Gemini no es válida o no tiene permiso.";
-            case 404 -> "El modelo de Gemini configurado no está disponible.";
-            case 429 -> "Se ha alcanzado el límite de uso de Gemini. "
-                    + "Puede ser la cuota del plan gratuito o un límite temporal; "
-                    + "inténtalo de nuevo más tarde.";
+            case 400 -> text("Gemini no pudo procesar la solicitud.",
+                    "Gemini could not process the request.");
+            case 401, 403 -> text(
+                    "La clave API de Gemini no es válida o no tiene permiso.",
+                    "The Gemini API key is invalid or does not have permission.");
+            case 404 -> text("El modelo de Gemini configurado no está disponible.",
+                    "The configured Gemini model is unavailable.");
+            case 429 -> text(
+                    "Se ha alcanzado el límite de uso de Gemini. Puede ser la cuota "
+                            + "del plan gratuito o un límite temporal; inténtalo de nuevo más tarde.",
+                    "The Gemini usage limit has been reached. This may be the free-tier "
+                            + "quota or a temporary limit; try again later.");
             default -> statusCode >= 500
-                    ? "Gemini no está disponible temporalmente. Inténtalo más tarde."
-                    : "Gemini devolvió un error (código " + statusCode + ").";
+                    ? text("Gemini no está disponible temporalmente. Inténtalo más tarde.",
+                            "Gemini is temporarily unavailable. Try again later.")
+                    : text("Gemini devolvió un error (código ",
+                            "Gemini returned an error (code ") + statusCode + ").";
         };
     }
 
@@ -107,12 +121,20 @@ public class GeminiClient {
             return result;
         }
         if ("MAX_TOKENS".equalsIgnoreCase(finishReason)) {
-            return result + "\n\n⚠ RESUMEN INCOMPLETO\n"
-                    + "Gemini alcanzó el límite de respuesta. Reduce la "
-                    + "selección o procesa el libro en varios bloques.";
+            return result + text(
+                    "\n\n⚠ RESUMEN INCOMPLETO\nGemini alcanzó el límite de "
+                            + "respuesta. Reduce la selección o procesa el libro en varios bloques.",
+                    "\n\n⚠ INCOMPLETE SUMMARY\nGemini reached the response limit. "
+                            + "Reduce the selection or process the book in several batches.");
         }
-        return result + "\n\n⚠ Gemini finalizó la respuesta antes de tiempo "
+        return result + text(
+                "\n\n⚠ Gemini finalizó la respuesta antes de tiempo ",
+                "\n\n⚠ Gemini ended the response early ")
                 + "(" + finishReason + ").";
+    }
+
+    private String text(String spanish, String english) {
+        return AppPreferences.isEnglish() ? english : spanish;
     }
 
     private String currentApiKey() {
@@ -148,7 +170,6 @@ public class GeminiClient {
         return values.isEmpty() ? null : values.get(0);
     }
 
-    /** Extrae cadenas JSON sin añadir una dependencia solo para esta prueba. */
     private List<String> jsonStrings(String json, String property) {
         List<String> values = new ArrayList<>();
         if (json == null) return values;

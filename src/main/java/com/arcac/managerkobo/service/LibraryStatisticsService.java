@@ -12,6 +12,9 @@ import java.util.List;
 import java.util.Map;
 import java.util.LinkedHashMap;
 import java.util.stream.Collectors;
+import static com.arcac.managerkobo.util.ReadingFormat.estimatedWordsRead;
+import static com.arcac.managerkobo.util.ReadingFormat.hasReliableReadingPace;
+import static com.arcac.managerkobo.util.ReadingFormat.wordsPerMinute;
 import java.util.Locale;
 import static com.arcac.managerkobo.util.ReadingFormat.textOr;
 
@@ -128,6 +131,27 @@ public class LibraryStatisticsService {
         int elapsedMonths = YearMonth.now().getMonthValue();
         double monthlyPace = finishedThisYear / (double) elapsedMonths;
         int annualProjection = (int) Math.round(monthlyPace * 12);
+        List<Book> booksWithPace = safeBooks.stream()
+                .filter(book -> hasReliableReadingPace(book))
+                .toList();
+        long readWords = booksWithPace.stream()
+                .mapToLong(book -> estimatedWordsRead(book))
+                .sum();
+        long paceSeconds = booksWithPace.stream()
+                .mapToLong(Book::getSecondsRead)
+                .sum();
+        double averageWordsPerMinute = paceSeconds == 0 ? 0
+                : readWords / (paceSeconds / 60.0);
+        Book fastestReadBook = booksWithPace.stream()
+                .max(Comparator.comparingDouble(book -> wordsPerMinute(book)))
+                .orElse(null);
+        double fastestWordsPerMinute = fastestReadBook == null ? 0
+                : wordsPerMinute(fastestReadBook);
+        Book slowestReadBook = booksWithPace.stream()
+                .min(Comparator.comparingDouble(book -> wordsPerMinute(book)))
+                .orElse(null);
+        double slowestWordsPerMinute = slowestReadBook == null ? 0
+                : wordsPerMinute(slowestReadBook);
 
         return new ReadingStatistics(safeBooks.size(), finished, reading, unread,
                 seconds, safeHighlights.size(), notes, averageProgress,
@@ -139,7 +163,9 @@ public class LibraryStatisticsService {
                 sortDescending(booksByLanguage), inProgressBooks,
                 highlightsByMonth, notesByMonth, wordsByMonth,
                 finishedBooksByMonth, finishedThisYear, monthlyPace,
-                annualProjection);
+                annualProjection, averageWordsPerMinute,
+                fastestReadBook, fastestWordsPerMinute,
+                slowestReadBook, slowestWordsPerMinute);
     }
 
     public ReadingStatistics calculate(List<Book> books) {

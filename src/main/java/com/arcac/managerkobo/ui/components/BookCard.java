@@ -127,8 +127,11 @@ public class BookCard extends RoundedPanel {
         component.setCursor(Cursor.getPredefinedCursor(Cursor.HAND_CURSOR));
         component.addMouseListener(new MouseAdapter() {
             @Override
-            public void mouseClicked(MouseEvent event) {
-                if (event.getButton() == MouseEvent.BUTTON1) action.accept(book);
+            public void mousePressed(MouseEvent event) {
+                if (javax.swing.SwingUtilities.isLeftMouseButton(event)) {
+                    event.consume();
+                    action.accept(book);
+                }
             }
         });
         if (component instanceof JPanel panel) {

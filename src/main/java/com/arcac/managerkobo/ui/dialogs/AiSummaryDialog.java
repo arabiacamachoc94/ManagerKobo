@@ -6,6 +6,7 @@ import com.arcac.managerkobo.ai.GeminiApiKeyStore;
 import com.arcac.managerkobo.model.Bookmark;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.util.I18n;
+import com.arcac.managerkobo.ui.util.UiStyles;
 import com.arcac.managerkobo.ui.components.RoundedButton;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -20,6 +21,7 @@ import javax.swing.JButton;
 import javax.swing.JDialog;
 import javax.swing.JLabel;
 import javax.swing.JPanel;
+import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.SwingWorker;
@@ -34,6 +36,7 @@ public class AiSummaryDialog extends JDialog {
     private final JTextArea response = new JTextArea();
     private final JLabel status = new JLabel();
     private final JButton generate = new RoundedButton("");
+    private final JProgressBar progress = new JProgressBar();
 
     public AiSummaryDialog(Window owner, List<Bookmark> highlights,
             Operation operation, String question) {
@@ -64,13 +67,27 @@ public class AiSummaryDialog extends JDialog {
         JLabel title = label(dialogTitle(operation),
                 20, Font.BOLD, AppTheme.TEXT);
         header.add(title, BorderLayout.NORTH);
-        header.add(label("Se enviarán " + highlights.size()
-                        + " subrayados seleccionados a la API de Gemini.",
+        header.add(label(I18n.text("Se enviarán ") + highlights.size()
+                        + I18n.text(" subrayados seleccionados a la API de Gemini."),
                 12, Font.PLAIN, AppTheme.MUTED_TEXT), BorderLayout.CENTER);
         status.setFont(AppTheme.font(Font.PLAIN, 12));
         status.setForeground(AppTheme.MUTED_TEXT);
         updateConfigurationState();
-        header.add(status, BorderLayout.SOUTH);
+        JPanel state = new JPanel();
+        state.setOpaque(false);
+        state.setLayout(new javax.swing.BoxLayout(
+                state, javax.swing.BoxLayout.Y_AXIS));
+        status.setAlignmentX(LEFT_ALIGNMENT);
+        state.add(status);
+        state.add(javax.swing.Box.createVerticalStrut(5));
+        progress.setIndeterminate(true);
+        progress.setVisible(false);
+        progress.setBorder(null);
+        progress.setMaximumSize(new Dimension(Integer.MAX_VALUE, 4));
+        progress.setPreferredSize(new Dimension(0, 4));
+        progress.setAlignmentX(LEFT_ALIGNMENT);
+        state.add(progress);
+        header.add(state, BorderLayout.SOUTH);
         content.add(header, BorderLayout.NORTH);
 
         response.setEditable(false);
@@ -104,17 +121,21 @@ public class AiSummaryDialog extends JDialog {
         boolean configured = aiService.isConfigured();
         generate.setEnabled(configured);
         if (!configured) {
-            status.setText("Configura tu clave API para comenzar.");
+            status.setText(I18n.text("Configura tu clave API para comenzar."));
         } else if (GeminiApiKeyStore.comesFromEnvironment()) {
-            status.setText("Preparado: clave cargada desde GEMINI_API_KEY.");
-        } else if (!status.getText().startsWith("Clave guardada")) {
-            status.setText("Preparado: clave guardada en la aplicación.");
+            status.setText(I18n.text("Preparado: clave cargada desde GEMINI_API_KEY."));
+        } else {
+            status.setText(I18n.text("Preparado: clave guardada en la aplicación."));
         }
     }
 
     private void generateResponse() {
         generate.setEnabled(false);
+        generate.setText(I18n.text("Generando..."));
         status.setText(I18n.text("Consultando a Gemini..."));
+        progress.setVisible(true);
+        setCursor(java.awt.Cursor.getPredefinedCursor(
+                java.awt.Cursor.WAIT_CURSOR));
         response.setText("");
         new SwingWorker<String, Void>() {
             @Override
@@ -129,10 +150,13 @@ public class AiSummaryDialog extends JDialog {
                     response.setCaretPosition(0);
                     status.setText(I18n.text("Respuesta generada correctamente."));
                 } catch (Exception exception) {
-                    response.setText("No se pudo generar el resumen.\n\n"
-                            + rootMessage(exception));
-                    status.setText("La petición ha fallado.");
+                    response.setText(I18n.text("No se pudo generar la respuesta.") + "\n\n"
+                            + I18n.text(rootMessage(exception)));
+                    status.setText(I18n.text("La petición ha fallado."));
                 } finally {
+                    progress.setVisible(false);
+                    setCursor(java.awt.Cursor.getDefaultCursor());
+                    generate.setText(I18n.text(actionText(operation)));
                     generate.setEnabled(aiService.isConfigured());
                 }
             }
@@ -160,7 +184,7 @@ public class AiSummaryDialog extends JDialog {
         if (text == null || text.isBlank()) return;
         Toolkit.getDefaultToolkit().getSystemClipboard()
                 .setContents(new StringSelection(text), null);
-        status.setText("Respuesta copiada al portapapeles.");
+        status.setText(I18n.text("Respuesta copiada al portapapeles."));
     }
 
     private JButton button(String text, Color color) {
@@ -170,13 +194,11 @@ public class AiSummaryDialog extends JDialog {
     }
 
     private void styleButton(JButton button, Color color) {
-        button.putClientProperty("JButton.buttonType", "roundRect");
-        button.putClientProperty("JComponent.roundRect", true);
-        button.setFont(AppTheme.font(Font.BOLD, 12));
-        button.setForeground(Color.WHITE);
-        button.setBackground(color);
-        button.setFocusPainted(false);
-        button.setBorder(new EmptyBorder(9, 12, 9, 12));
+        if (color.equals(AppTheme.PANEL_ALT)) {
+            UiStyles.secondaryButton(button);
+        } else {
+            UiStyles.actionButton(button, color);
+        }
     }
 
     private JLabel label(String text, int size, int style, Color color) {

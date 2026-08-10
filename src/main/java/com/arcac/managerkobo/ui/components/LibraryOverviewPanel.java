@@ -39,12 +39,14 @@ public class LibraryOverviewPanel extends JPanel {
 
     private JPanel createReadingPace() {
         RoundedPanel pace = new RoundedPanel(15, AppTheme.PANEL_ALT);
-        pace.setLayout(new GridLayout(1, 3, 18, 0));
+        pace.setLayout(new GridLayout(1, 4, 18, 0));
         pace.setBorder(new EmptyBorder(10, 18, 10, 18));
         pace.setAlignmentX(LEFT_ALIGNMENT);
         pace.setMaximumSize(new Dimension(Integer.MAX_VALUE, 64));
         pace.add(paceMetric("Terminados este año",
                 String.valueOf(statistics.finishedBooksThisYear())));
+        pace.add(paceMetric("Subrayados",
+                String.valueOf(statistics.totalHighlights())));
         pace.add(paceMetric("Ritmo mensual",
                 String.format(Locale.getDefault(), "%.1f", statistics.monthlyBookPace())));
         pace.add(paceMetric("Proyección anual",
@@ -75,8 +77,9 @@ public class LibraryOverviewPanel extends JPanel {
         metrics.add(metric("Terminados",
                 String.valueOf(statistics.finishedBooks()), AppTheme.GREEN));
         metrics.add(metric("Horas leídas", totalHoursText(), AppTheme.PURPLE));
-        metrics.add(metric("Subrayados",
-                String.valueOf(statistics.totalHighlights()), AppTheme.ORANGE));
+        metrics.add(metric("Ritmo de lectura",
+                readingPaceNumber(statistics.averageReadingWordsPerMinute()),
+                AppTheme.ORANGE));
         return metrics;
     }
 
@@ -101,7 +104,7 @@ public class LibraryOverviewPanel extends JPanel {
         insights.setLayout(new BoxLayout(insights, BoxLayout.Y_AXIS));
         insights.setBorder(new EmptyBorder(16, 18, 16, 18));
         insights.setAlignmentX(LEFT_ALIGNMENT);
-        insights.setMaximumSize(new Dimension(Integer.MAX_VALUE, 145));
+        insights.setMaximumSize(new Dimension(Integer.MAX_VALUE, 202));
 
         var topAuthor = statistics.readingSecondsByAuthor()
                 .entrySet().stream().findFirst().orElse(null);
@@ -128,14 +131,43 @@ public class LibraryOverviewPanel extends JPanel {
                                 statistics.averageSecondsPerFinishedBook())
                         + ".",
                 "media por libro");
-        addInsight(insights, AppTheme.GREEN,
-                statistics.readingBooks() == 1
-                        ? "Tienes 1 lectura activa en este momento."
-                        : "Tienes " + statistics.readingBooks()
-                                + " lecturas activas en este momento.",
-                statistics.readingBooks() == 1
-                        ? "lectura activa" : "lecturas activas");
+        addReadingPaceInsight(insights);
+        Book fastest = statistics.fastestReadBook();
+        addInsight(insights, AppTheme.BLUE,
+                fastest == null
+                        ? "Aún no hay datos suficientes para calcular el libro leído más rápido."
+                        : "El libro que has leído más rápido es «"
+                                + textOr(fastest.getTitle(), "Sin título")
+                                + "».",
+                "libro que has leído más rápido");
+        Book slowest = statistics.slowestReadBook();
+        addInsight(insights, AppTheme.ORANGE,
+                slowest == null
+                        ? "Aún no hay datos suficientes para calcular el libro leído más lento."
+                        : "El libro leído más lento es «"
+                                + textOr(slowest.getTitle(), "Sin título")
+                                + "».",
+                "libro leído más lento");
         return insights;
+    }
+
+    private void addReadingPaceInsight(JPanel insights) {
+        double pace = statistics.averageReadingWordsPerMinute();
+        if (pace <= 0) {
+            addInsight(insights, AppTheme.GREEN,
+                    "Aún no hay datos suficientes para comparar tu ritmo de lectura.",
+                    "ritmo de lectura");
+            return;
+        }
+        String level = pace < 175 ? "lento" : pace <= 300 ? "normal" : "rápido";
+        addInsight(insights, AppTheme.GREEN,
+                "Tu ritmo de lectura estimado es " + level
+                        + " frente al rango adulto de referencia.",
+                "ritmo de lectura estimado es " + level);
+    }
+
+    private String readingPaceNumber(double wordsPerMinute) {
+        return wordsPerMinute <= 0 ? "--" : String.valueOf(Math.round(wordsPerMinute));
     }
 
     private void addInsight(JPanel panel, Color dotColor,
