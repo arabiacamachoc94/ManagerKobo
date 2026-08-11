@@ -32,7 +32,6 @@ public final class I18n {
         add("API de Gemini", "Gemini API"); add("No hay API key", "No API key configured");
         add("Introducir", "Add key"); add("Modificar", "Change");
         add("Idioma", "Language"); add("Tema", "Theme");
-        add("Aplicar", "Apply");
         add("Mi Biblioteca", "My Library"); add("Biblioteca", "Library");
         add("Resumen", "Overview");
         add("Subrayados", "Highlights"); add("Palabras", "Words");
@@ -110,14 +109,12 @@ public final class I18n {
         add("Selecciona el formato del archivo:", "Select the file format:");
         add("Resumir subrayados con Gemini", "Summarize highlights with Gemini");
         add("Resumen con Gemini", "Gemini summary");
-        add("Generar resumen", "Generate summary"); add("Configurar clave", "Configure key");
         add("Resumir", "Summarize"); add("Ideas clave", "Key ideas");
         add("Preguntar...", "Ask..."); add("✨ Acciones IA ▾", "✨ AI actions ▾");
         add("Aplicar una acción inteligente a la selección", "Apply an AI action to the selection");
         add("Resumir subrayados", "Summarize highlights");
         add("Extraer ideas clave", "Extract key ideas");
         add("Preguntar sobre los subrayados", "Ask about the highlights");
-        add("Extraer ideas", "Extract ideas"); add("Responder", "Answer");
         add("Consultando a Gemini...", "Asking Gemini...");
         add("Respuesta generada correctamente.", "Response generated successfully.");
         add("Preguntar a Gemini", "Ask Gemini");
@@ -146,6 +143,10 @@ public final class I18n {
         add("Filtrar ▾", "Filter ▾"); add("Seleccionar", "Select");
         add("Filtrar", "Filter");
         add("Cancelar", "Cancel"); add("Limpiar", "Clear"); add("Copiar", "Copy");
+        add("Seleccionar todos", "Select all");
+        add("Seleccionar todos los subrayados", "Select all highlights");
+        add("Seleccionar todos los subrayados de este libro",
+                "Select all highlights from this book");
         add("Texto", "Text"); add("Copiar subrayados", "Copy highlights");
         add(" subrayados copiados al portapapeles.", " highlights copied to the clipboard.");
         add(" subrayados exportados en ", " highlights exported as ");
@@ -192,14 +193,14 @@ public final class I18n {
         add("Imagen JPEG", "JPEG image");
         add("Limpiar filtros", "Clear filters"); add("Con subrayados", "With highlights");
         add("No se encontraron subrayados.", "No highlights found.");
-        add("Exportar todos los subrayados", "Export all highlights");
         add("Selecciona uno o varios subrayados para usar Gemini.",
                 "Select one or more highlights to use Gemini.");
+        add("Escribe una pregunta antes de continuar.",
+                "Enter a question before continuing.");
         add("Selecciona uno o varios subrayados para copiarlos.",
                 "Select one or more highlights to copy them.");
-        add("No hay subrayados para exportar en esta opción.",
-                "There are no highlights to export with this option.");
-        add("Exportar resultados visibles", "Export visible results"); add("Exportar todos", "Export all");
+        add("Selecciona uno o varios subrayados para exportarlos.",
+                "Select one or more highlights to export them.");
         add("Cargando...", "Loading...");
         add("Buscar título o autor...", "Search by title or author...");
         add("Buscar libro, autor o texto subrayado...", "Search book, author or highlighted text...");

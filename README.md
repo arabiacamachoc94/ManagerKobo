@@ -1,75 +1,100 @@
 # Kobo Manager
 
-## Descripción
+Aplicación de escritorio en Java para explorar, analizar y exportar la información de lectura almacenada por un eReader Kobo.
 
-Kobo Manager es una aplicación de escritorio desarrollada en Java para extraer, explorar y analizar la información almacenada por dispositivos Kobo eReader.
+> **Estado:** beta en desarrollo. Actualmente trabaja con un único Kobo Clara Colour y ha sido probada principalmente en Windows.
 
-La aplicación detecta el dispositivo conectado, crea una copia local de su base de datos SQLite y presenta de forma visual la biblioteca y las estadísticas personales de lectura. El objetivo final es facilitar la consulta, organización y exportación de libros, notas, subrayados y otros datos registrados por Kobo.
+## Motivación
 
-## Estado del proyecto
+La motivación inicial del proyecto fue poder extraer los subrayados del Kobo para conservarlos, consultarlos y manipularlos con más facilidad fuera del dispositivo.
 
-🚧 **En desarrollo**
+A partir de esa necesidad, el proyecto creció hacia el análisis de datos de lectura: biblioteca, progreso, tiempo leído, palabras consultadas y patrones personales. Esta parte resulta especialmente útil para aprender y aplicar tratamiento, visualización y exportación de datos reales.
 
-Actualmente, el proyecto dispone de una primera interfaz funcional conectada a datos reales de Kobo. La arquitectura se encuentra dividida en modelos, acceso a datos, servicios estadísticos y componentes de interfaz.
+Kobo Manager detecta el dispositivo conectado, crea una copia local de `KoboReader.sqlite` y trabaja sobre ella. La base de datos original del Kobo no se modifica.
 
-## Funcionalidades implementadas
+## Funcionalidades principales
 
-- Detección automática de dispositivos Kobo conectados por USB.
-- Copia local y respaldo de `KoboReader.sqlite`.
-- Sincronización manual desde la interfaz sin bloquear la aplicación.
-- Diferenciación entre un Kobo conectado y el uso de datos locales.
-- Consulta de libros y subrayados mediante JDBC.
-- Dashboard con estadísticas reales de lectura.
-- Visualización de libros totales, terminados, tiempo leído y subrayados.
-- Información sobre la lectura actual, el último libro leído y el libro con mayor tiempo de lectura.
-- Biblioteca con tabla y búsqueda por título o autor.
-- Interfaz gráfica oscura desarrollada con Java Swing y FlatLaf.
-- Navegación entre secciones mediante `CardLayout`.
-- Capa reutilizable para calcular estadísticas de lectura.
+- Detección y sincronización del Kobo conectado por USB.
+- Uso de la última copia local cuando el dispositivo está desconectado.
+- Biblioteca visual con portadas, búsqueda y filtros combinables.
+- Detalle de libros con progreso, tiempo, ritmo y subrayados.
+- Subrayados agrupados por libro, selección múltiple y copia.
+- Exportación de subrayados en TXT y PDF.
+- Palabras consultadas en el diccionario y exportación en TXT.
+- Resumen con métricas, lecturas activas y gráficas estadísticas.
+- Exportación del resumen como JPEG e informe PDF.
+- Funciones opcionales con Gemini: resumen, ideas clave, preguntas y análisis del informe.
+- Tema oscuro y claro, interfaz en español e inglés e iconos SVG HiDPI.
+- 43 pruebas automatizadas y ejecución continua mediante GitHub Actions.
 
-## Funcionalidades previstas
+Algunas métricas son estimaciones y dependen de la información que cada modelo y firmware de Kobo guarde en SQLite.
 
-- Consulta, búsqueda y filtrado de subrayados y notas.
-- Edición y organización de notas personales.
-- Exportación de libros y subrayados a CSV, Markdown y otros formatos.
-- Diccionario personal con las palabras consultadas en el Kobo.
-- Análisis de capítulos y distribución de subrayados.
-- Estadísticas y patrones personales de lectura más avanzados.
-- Visualización de logros y actividad reciente.
-- Integración con herramientas de análisis como Power BI.
-- Compatibilidad adaptativa con diferentes versiones de la base de datos de Kobo.
+## Uso básico
 
-## Tecnologías utilizadas
+1. Conecta el Kobo por USB y permite el acceso desde el dispositivo.
+2. Abre Kobo Manager.
+3. La aplicación copiará `.kobo/KoboReader.sqlite` dentro del directorio local `data/`.
+4. Utiliza el botón de sincronización para actualizar los datos.
+5. Sin el Kobo conectado se utilizará la última copia local disponible.
 
-- Java 17
-- Java Swing
-- FlatLaf
-- JDBC
-- SQLite
+## Inteligencia artificial y privacidad
+
+Gemini es opcional y requiere que cada usuario introduzca su propia API key desde Ajustes. Cuando se utiliza, solo se envían los subrayados seleccionados o las estadísticas agregadas necesarias, no la SQLite completa.
+
+La base de datos de Kobo puede contener información personal. Por ello, `data/`, `*.sqlite`, las claves y los archivos generados localmente no deben publicarse. Estos elementos están excluidos mediante `.gitignore`.
+
+## Desarrollo
+
+Requisitos:
+
+- JDK 17
 - Maven
-- Git y GitHub
-- Power BI (integración prevista)
+- Un Kobo o una copia compatible de `KoboReader.sqlite`
 
-## Estructura principal
+Ejecutar la aplicación:
+
+```bash
+mvn exec:java
+```
+
+Ejecutar las pruebas:
+
+```bash
+mvn test
+```
+
+Generar la versión portable de Windows:
+
+```powershell
+powershell.exe -NoProfile -ExecutionPolicy Bypass -File .\build-portable.ps1
+```
+
+El resultado se crea en `dist/KoboManager/` y debe compartirse como una carpeta completa.
+
+## Tecnologías
+
+Java 17 · Swing · FlatLaf · JDBC · SQLite · PDFBox · Gemini API · Maven · JUnit 5 · GitHub Actions · jpackage
+
+## Estructura
 
 ```text
 src/main/java/com/arcac/managerkobo/
-├── app/        Punto de entrada de la aplicación
-├── database/   Conexión SQLite y consultas DAO
-├── model/      Modelos de libros y subrayados
-├── service/    Cálculo de estadísticas de lectura
-├── ui/         Ventana, paneles y componentes Swing
-└── util/       Detección y sincronización del Kobo
+├── ai/          Integración opcional con Gemini
+├── app/         Inicio de la aplicación
+├── database/    Conexión y consultas SQLite
+├── model/       Libros, subrayados y palabras
+├── service/     Carga, estadísticas, portadas y exportaciones
+├── ui/          Ventana, pantallas y componentes Swing
+└── util/        Detección, sincronización y formatos
 ```
 
-## Privacidad de los datos
 
-La base de datos de Kobo puede contener información personal y credenciales de la cuenta. Por este motivo, los archivos SQLite y el directorio local `data/` están excluidos del repositorio mediante `.gitignore`.
+## Limitaciones y próximas mejoras
 
-No deben publicarse archivos como:
+- Perfiles separados para utilizar varios Kobo.
+- Mayor compatibilidad entre modelos y versiones de firmware.
+- Histórico de lectura entre sincronizaciones.
+- Más opciones de IA, informes y exportaciones para análisis con Power BI.
+- Mejor registro y diagnóstico de errores en versiones distribuidas.
 
-```text
-KoboReader.sqlite
-KoboReader.sqlite-wal
-KoboReader.sqlite-shm
-```
+Kobo Manager es un proyecto personal e independiente. No está afiliado, patrocinado ni respaldado por Rakuten Kobo.

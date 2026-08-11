@@ -14,6 +14,7 @@ import javax.swing.JList;
 import javax.swing.JPanel;
 import javax.swing.ListCellRenderer;
 import javax.swing.SwingConstants;
+import javax.swing.Box;
 import javax.swing.BoxLayout;
 import javax.swing.border.EmptyBorder;
 
@@ -22,7 +23,6 @@ public class GroupedHighlightCellRenderer
         implements ListCellRenderer<HighlightListItem> {
 
     private final RoundedPanel groupPanel = new RoundedPanel(14, AppTheme.PANEL_ALT);
-    private final JLabel arrow = new JLabel();
     private final JLabel cover = new JLabel();
     private final JLabel title = new JLabel();
     private final JLabel author = new JLabel();
@@ -38,18 +38,15 @@ public class GroupedHighlightCellRenderer
         groupPanel.setBorder(new EmptyBorder(14, 16, 14, 16));
         groupPanel.setPreferredSize(new Dimension(400, 72));
 
-        arrow.setFont(AppTheme.font(Font.BOLD, 16));
-        arrow.setForeground(AppTheme.PURPLE);
-        arrow.setHorizontalAlignment(SwingConstants.CENTER);
-        arrow.setPreferredSize(new Dimension(18, 0));
         JPanel left = new JPanel();
         left.setOpaque(false);
         left.setLayout(new BoxLayout(left, BoxLayout.X_AXIS));
         groupCheck.setOpaque(false);
         groupCheck.setFocusable(false);
-        groupCheck.setToolTipText("Seleccionar todos los subrayados de este libro");
+        groupCheck.setToolTipText(I18n.text(
+                "Seleccionar todos los subrayados de este libro"));
         left.add(groupCheck);
-        left.add(arrow);
+        left.add(Box.createHorizontalStrut(8));
         cover.setPreferredSize(new Dimension(38, 42));
         cover.setHorizontalAlignment(SwingConstants.CENTER);
         left.add(cover);
@@ -83,8 +80,6 @@ public class GroupedHighlightCellRenderer
         if (value instanceof BookGroup group) {
             cover.setIcon(group.cover());
             cover.setVisible(group.cover() != null);
-            arrow.setText(group.loading() ? "↻"
-                    : group.expanded() ? "▾" : "▸");
             title.setText(group.title());
             author.setText(group.author());
             count.setText(group.loading() ? I18n.text("Cargando...")
@@ -106,5 +101,11 @@ public class GroupedHighlightCellRenderer
         renderer.setSize(Math.max(1, list.getWidth()), 1);
         return renderer.getListCellRendererComponent(
                 null, highlight.bookmark(), index, highlight.marked(), hasFocus);
+    }
+
+    /** Ancho real ocupado por el margen izquierdo y el checkbox del grupo. */
+    public int checkboxHitWidth() {
+        return groupPanel.getInsets().left
+                + groupCheck.getPreferredSize().width;
     }
 }

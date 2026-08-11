@@ -14,6 +14,7 @@ import com.arcac.managerkobo.ui.panels.SettingsPanel;
 import com.arcac.managerkobo.ui.panels.WordsPanel;
 import com.arcac.managerkobo.ui.theme.AppTheme;
 import com.arcac.managerkobo.ui.util.AppPreferences;
+import com.arcac.managerkobo.ui.util.IconLoader;
 import com.arcac.managerkobo.ui.util.I18n;
 import com.formdev.flatlaf.FlatDarkLaf;
 import com.formdev.flatlaf.FlatLightLaf;
@@ -28,10 +29,10 @@ import java.time.ZoneId;
 import java.util.ArrayList;
 import java.util.List;
 import javax.swing.JFrame;
+import javax.swing.ImageIcon;
 import javax.swing.JPanel;
 import javax.swing.JOptionPane;
 import javax.swing.SwingWorker;
-import javax.swing.SwingUtilities;
 import javax.swing.UIManager;
 
 /**
@@ -70,6 +71,12 @@ public class MainFrame extends JFrame {
 
     private void configureWindow() {
         setTitle("Kobo Manager");
+        setIconImages(List.of(16, 20, 24, 32, 40, 48, 64, 128, 256)
+                .stream()
+                .map(size -> IconLoader.load("/icons/app-icon.png", size))
+                .filter(java.util.Objects::nonNull)
+                .map(ImageIcon::getImage)
+                .toList());
         setDefaultCloseOperation(EXIT_ON_CLOSE);
         setMinimumSize(new Dimension(820, 600));
         setSize(1180, 760);
@@ -120,18 +127,20 @@ public class MainFrame extends JFrame {
         }
         UIManager.put("Button.arc", 18);
         UIManager.put("Component.arc", 14);
-        SwingUtilities.updateComponentTreeUI(this);
         getContentPane().removeAll();
         createLayout(currentKoboConnected);
         createPages(currentBooks, currentHighlights, currentWords, currentStatistics);
         showPage(SidebarPanel.SETTINGS);
-        I18n.translateTree(this);
+        I18n.translateTree(sidebarPanel);
         revalidate();
         repaint();
     }
 
     private void showPage(String page) {
         currentPage = page;
+        if (sidebarPanel != null) {
+            sidebarPanel.selectPage(page);
+        }
         if (SidebarPanel.SETTINGS.equals(page) && settingsPanel != null) {
             settingsPanel.refreshState();
         }

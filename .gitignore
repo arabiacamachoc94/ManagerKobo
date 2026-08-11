@@ -1,5 +1,6 @@
 
 target/
+dist/
 
 
 nbproject/private/
@@ -18,7 +19,7 @@ Thumbs.db
 data/
 *.sqlite
 
+# Guía técnica personal (no publicar)
+docs/GUIA_TECNICA.md
 
-target/
 .idea/
-*.class

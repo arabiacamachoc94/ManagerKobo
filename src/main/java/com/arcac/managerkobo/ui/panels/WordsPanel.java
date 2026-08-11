@@ -238,7 +238,7 @@ public class WordsPanel extends JPanel {
         boolean expanded = searching
                 || expandedGroups.getOrDefault(key, false);
         wordGrid.setVisible(expanded);
-        arrow.setText(expanded ? "⌄" : "›");
+        arrow.setText(expanded ? "" : "›");
         card.add(wordGrid, BorderLayout.CENTER);
         fitGroupHeight(card);
 
@@ -248,7 +248,7 @@ public class WordsPanel extends JPanel {
                 boolean show = !wordGrid.isVisible();
                 expandedGroups.put(key, show);
                 wordGrid.setVisible(show);
-                arrow.setText(show ? "⌄" : "›");
+                arrow.setText(show ? "" : "›");
                 fitGroupHeight(card);
                 card.revalidate();
                 groupsPanel.revalidate();
@@ -273,8 +273,7 @@ public class WordsPanel extends JPanel {
         wordLabel.setAlignmentX(LEFT_ALIGNMENT);
         chip.add(wordLabel);
         chip.add(Box.createVerticalStrut(5));
-        JLabel detail = label(dictionaryName(word.dictionarySuffix())
-                        + "  ·  " + formatDate(word.dateCreated()),
+        JLabel detail = label(formatDate(word.dateCreated()),
                 11, Font.PLAIN, AppTheme.MUTED_TEXT);
         detail.setAlignmentX(LEFT_ALIGNMENT);
         chip.add(detail);
@@ -285,8 +284,7 @@ public class WordsPanel extends JPanel {
         return query.isEmpty()
                 || contains(word.text(), query)
                 || contains(word.bookTitle(), query)
-                || contains(word.bookAuthor(), query)
-                || contains(dictionaryName(word.dictionarySuffix()), query);
+                || contains(word.bookAuthor(), query);
     }
 
     private boolean contains(String value, String query) {
@@ -299,19 +297,6 @@ public class WordsPanel extends JPanel {
         }
         return textOr(word.bookTitle(), "") + "\u0000"
                 + textOr(word.bookAuthor(), "");
-    }
-
-    private String dictionaryName(String suffix) {
-        if (suffix == null || suffix.isBlank()) return I18n.text("Desconocido");
-        return switch (suffix.toLowerCase(Locale.ROOT)) {
-            case "-es" -> I18n.text("Español");
-            case "-en" -> I18n.text("Inglés");
-            case "-fr" -> I18n.text("Francés");
-            case "-de" -> I18n.text("Alemán");
-            case "-it" -> I18n.text("Italiano");
-            case "-pt" -> I18n.text("Portugués");
-            default -> suffix.replace("-", "").toUpperCase(Locale.ROOT);
-        };
     }
 
     private String formatDate(String value) {

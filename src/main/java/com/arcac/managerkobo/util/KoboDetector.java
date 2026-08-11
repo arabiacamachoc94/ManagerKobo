@@ -5,6 +5,11 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.StandardCopyOption;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.text.SimpleDateFormat;
 import java.util.Comparator;
 import java.util.Date;
@@ -14,6 +19,8 @@ import java.util.stream.Stream;
 public final class KoboDetector {
     private static final Path DATA_DIRECTORY = Path.of("data");
     private static final Path LOCAL_DATABASE = DATA_DIRECTORY.resolve("KoboReader.sqlite");
+    private static final Path TEMP_DATABASE =
+            DATA_DIRECTORY.resolve("KoboReader.sqlite.syncing");
     private static final int MAX_BACKUPS = 5;
 
     private KoboDetector() { }
@@ -26,14 +33,21 @@ public final class KoboDetector {
         Path deviceDatabase = null;
         try {
             Files.createDirectories(DATA_DIRECTORY);
+            Files.deleteIfExists(TEMP_DATABASE);
             removeOldBackups();
             deviceDatabase = findDeviceDatabase();
 
             if (deviceDatabase == null) {
-                if (Files.isRegularFile(LOCAL_DATABASE)) {
+                if (Files.isRegularFile(LOCAL_DATABASE)
+                        && isValidDatabase(LOCAL_DATABASE)) {
                     return new KoboSyncResult(false, true, false,
                             LOCAL_DATABASE.toAbsolutePath().toString(),
                             "No se detectó un Kobo; se están usando los datos locales.");
+                }
+                if (Files.isRegularFile(LOCAL_DATABASE)) {
+                    return new KoboSyncResult(false, false, false, null,
+                            "La copia local de la base de datos no es válida. "
+                            + "Conecta el Kobo y vuelve a sincronizar.");
                 }
                 return new KoboSyncResult(false, false, false, null,
                         "No se detectó un Kobo ni existe una base de datos local.");
@@ -46,7 +60,8 @@ public final class KoboDetector {
             return new KoboSyncResult(true, true, updated,
                     LOCAL_DATABASE.toAbsolutePath().toString(), message);
         } catch (IOException exception) {
-            boolean localAvailable = Files.isRegularFile(LOCAL_DATABASE);
+            boolean localAvailable = Files.isRegularFile(LOCAL_DATABASE)
+                    && isValidDatabase(LOCAL_DATABASE);
             return new KoboSyncResult(deviceDatabase != null, localAvailable, false,
                     localAvailable ? LOCAL_DATABASE.toAbsolutePath().toString() : null,
                     "No se pudo sincronizar el Kobo: " + exception.getMessage());
@@ -71,24 +86,30 @@ public final class KoboDetector {
 
     private static boolean copyWhenChanged(Path deviceDatabase) throws IOException {
         if (!Files.isRegularFile(LOCAL_DATABASE)) {
-            copyDatabase(deviceDatabase);
+            copyValidatedDatabase(deviceDatabase);
             return true;
         }
 
         boolean sameSize = Files.size(deviceDatabase) == Files.size(LOCAL_DATABASE);
         boolean sameModifiedTime = Files.getLastModifiedTime(deviceDatabase)
                 .equals(Files.getLastModifiedTime(LOCAL_DATABASE));
-        if (sameSize && sameModifiedTime) return false;
+        if (sameSize && sameModifiedTime && isValidDatabase(LOCAL_DATABASE)) {
+            return false;
+        }
+
+        stageAndValidate(deviceDatabase);
 
         String timestamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
         Path backup = DATA_DIRECTORY.resolve("KoboReader_backup_" + timestamp + ".sqlite");
         Files.move(LOCAL_DATABASE, backup, StandardCopyOption.REPLACE_EXISTING);
         try {
-            copyDatabase(deviceDatabase);
+            moveReplacing(TEMP_DATABASE, LOCAL_DATABASE);
             removeOldBackups();
         } catch (IOException exception) {
             Files.move(backup, LOCAL_DATABASE, StandardCopyOption.REPLACE_EXISTING);
             throw exception;
+        } finally {
+            Files.deleteIfExists(TEMP_DATABASE);
         }
         return true;
     }
@@ -116,9 +137,61 @@ public final class KoboDetector {
         }
     }
 
-    private static void copyDatabase(Path source) throws IOException {
-        Files.copy(source, LOCAL_DATABASE, StandardCopyOption.REPLACE_EXISTING,
+    private static void copyValidatedDatabase(Path source) throws IOException {
+        stageAndValidate(source);
+        try {
+            moveReplacing(TEMP_DATABASE, LOCAL_DATABASE);
+        } finally {
+            Files.deleteIfExists(TEMP_DATABASE);
+        }
+    }
+
+    private static void stageAndValidate(Path source) throws IOException {
+        Files.deleteIfExists(TEMP_DATABASE);
+        Files.copy(source, TEMP_DATABASE, StandardCopyOption.REPLACE_EXISTING,
                 StandardCopyOption.COPY_ATTRIBUTES);
-        Files.setLastModifiedTime(LOCAL_DATABASE, Files.getLastModifiedTime(source));
+        try {
+            validateDatabase(TEMP_DATABASE);
+        } catch (IOException exception) {
+            Files.deleteIfExists(TEMP_DATABASE);
+            throw exception;
+        }
+    }
+
+    static void validateDatabase(Path database) throws IOException {
+        String url = "jdbc:sqlite:" + database.toAbsolutePath();
+        try (Connection connection = DriverManager.getConnection(url);
+                Statement statement = connection.createStatement();
+                ResultSet result = statement.executeQuery("PRAGMA quick_check")) {
+            if (!result.next() || !"ok".equalsIgnoreCase(result.getString(1))) {
+                throw new IOException(
+                        "La base de datos del Kobo no ha superado la comprobación "
+                        + "de integridad. La copia local anterior se ha conservado.");
+            }
+        } catch (SQLException exception) {
+            throw new IOException(
+                    "La base de datos del Kobo está siendo actualizada o no es válida. "
+                    + "La copia local anterior se ha conservado.", exception);
+        }
+    }
+
+    private static boolean isValidDatabase(Path database) {
+        try {
+            validateDatabase(database);
+            return true;
+        } catch (IOException exception) {
+            return false;
+        }
+    }
+
+    private static void moveReplacing(Path source, Path destination)
+            throws IOException {
+        try {
+            Files.move(source, destination,
+                    StandardCopyOption.REPLACE_EXISTING,
+                    StandardCopyOption.ATOMIC_MOVE);
+        } catch (java.nio.file.AtomicMoveNotSupportedException exception) {
+            Files.move(source, destination, StandardCopyOption.REPLACE_EXISTING);
+        }
     }
 }

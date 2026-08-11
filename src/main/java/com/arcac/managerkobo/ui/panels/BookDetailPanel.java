@@ -53,7 +53,7 @@ public class BookDetailPanel extends JPanel {
         header.setBorder(new EmptyBorder(22, 32, 8, 32));
 
         JButton back = new RoundedButton("", 28);
-        back.setIcon(IconLoader.loadTinted("/icons/back.png", 18, AppTheme.TEXT));
+        back.setIcon(IconLoader.loadTinted("/icons/back.svg", 18, AppTheme.TEXT));
         back.setToolTipText("Volver");
         back.getAccessibleContext().setAccessibleName("Volver");
         back.setPreferredSize(new Dimension(42, 42));
@@ -156,7 +156,7 @@ public class BookDetailPanel extends JPanel {
         cover.setVerticalAlignment(SwingConstants.CENTER);
         cover.setPreferredSize(new Dimension(64, 90));
         cover.setIcon(IconLoader.loadTinted(
-                "/icons/libro.png", 38, AppTheme.PURPLE));
+                "/icons/libro.svg", 38, AppTheme.PURPLE));
 
         coverService.loadAsync(book, 64, 90, loadedCover -> {
             if (loadedCover != null) cover.setIcon(loadedCover);

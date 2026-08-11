@@ -9,7 +9,6 @@ import com.arcac.managerkobo.ui.util.I18n;
 import java.awt.BorderLayout;
 import java.awt.Color;
 import java.awt.Dimension;
-import java.awt.FlowLayout;
 import java.awt.Font;
 import java.awt.GridBagConstraints;
 import java.awt.GridBagLayout;
@@ -41,7 +40,7 @@ public class SettingsPanel extends JPanel {
             AppPreferences.isEnglish()
                     ? new String[]{"Dark", "Light"}
                     : new String[]{"Oscuro", "Claro"});
-    private final JButton applyButton = button("Aplicar", AppTheme.PURPLE);
+    private boolean refreshingControls;
 
     public SettingsPanel(Runnable applyAction) {
         this.applyAction = applyAction;
@@ -50,11 +49,10 @@ public class SettingsPanel extends JPanel {
         add(createHeader(), BorderLayout.NORTH);
         add(createContent(), BorderLayout.CENTER);
         setSettingsButtonSize(apiButton);
-        setSettingsButtonSize(applyButton);
         setSettingsControlSize(language);
         setSettingsControlSize(theme);
-        configureActions();
         refreshState();
+        configureActions();
     }
 
     private JPanel createHeader() {
@@ -92,14 +90,6 @@ public class SettingsPanel extends JPanel {
         JPanel about = createAboutPanel();
         about.setAlignmentX(LEFT_ALIGNMENT);
         cards.add(about);
-        JPanel actions = new JPanel(new FlowLayout(FlowLayout.RIGHT, 0, 8));
-        actions.setOpaque(false);
-        actions.setBorder(new EmptyBorder(8, 0, 0, 30));
-        actions.add(applyButton);
-        actions.setAlignmentX(LEFT_ALIGNMENT);
-        actions.setMaximumSize(new Dimension(
-                Integer.MAX_VALUE, actions.getPreferredSize().height));
-        cards.add(actions);
 
         JScrollPane scroll = new JScrollPane(cards);
         scroll.setBorder(null);
@@ -228,7 +218,8 @@ public class SettingsPanel extends JPanel {
 
     private void configureActions() {
         apiButton.addActionListener(event -> editApiKey());
-        applyButton.addActionListener(event -> applyChanges());
+        language.addActionListener(event -> applyChangesImmediately());
+        theme.addActionListener(event -> applyChangesImmediately());
     }
 
     private void editApiKey() {
@@ -239,8 +230,13 @@ public class SettingsPanel extends JPanel {
             return;
         }
 
-        boolean configured = !GeminiApiKeyStore.get().isBlank();
+        String storedApiKey = GeminiApiKeyStore.get();
+        boolean configured = !storedApiKey.isBlank();
         JPasswordField field = new JPasswordField(30);
+        if (configured) {
+            field.setText(storedApiKey);
+            field.selectAll();
+        }
         String[] options = configured
                 ? new String[]{I18n.text("Guardar"), I18n.text("Eliminar"), I18n.text("Cancelar")}
                 : new String[]{I18n.text("Guardar"), I18n.text("Cancelar")};
@@ -263,26 +259,35 @@ public class SettingsPanel extends JPanel {
         refreshState();
     }
 
-    private void applyChanges() {
-        AppPreferences.setLanguage((String) language.getSelectedItem());
-        String selectedTheme = (String) theme.getSelectedItem();
-        AppPreferences.setTheme("Light".equals(selectedTheme)
-                ? "Claro" : "Dark".equals(selectedTheme)
-                        ? "Oscuro" : selectedTheme);
+    private void applyChangesImmediately() {
+        if (refreshingControls) {
+            return;
+        }
+        AppPreferences.setLanguage(language.getSelectedIndex() == 1
+                ? "English" : "Español");
+        AppPreferences.setTheme(theme.getSelectedIndex() == 1
+                ? "Claro" : "Oscuro");
         applyAction.run();
     }
 
     public void refreshState() {
-        boolean configured = !GeminiApiKeyStore.get().isBlank();
-        apiStatus.setText(I18n.text(configured
-                ? "✓ API key guardada" : "No hay API key"));
-        apiStatus.setForeground(configured ? AppTheme.GREEN : AppTheme.MUTED_TEXT);
-        apiButton.setText(I18n.text(configured ? "Modificar" : "Introducir"));
-        language.setSelectedItem(AppPreferences.language());
-        String storedTheme = AppPreferences.theme();
-        theme.setSelectedItem(AppPreferences.isEnglish()
-                ? ("Claro".equals(storedTheme) ? "Light" : "Dark")
-                : storedTheme);
+        refreshingControls = true;
+        try {
+            boolean configured = !GeminiApiKeyStore.get().isBlank();
+            apiStatus.setText(I18n.text(configured
+                    ? "✓ API key guardada" : "No hay API key"));
+            apiStatus.setForeground(configured
+                    ? AppTheme.GREEN : AppTheme.MUTED_TEXT);
+            apiButton.setText(I18n.text(configured
+                    ? "Modificar" : "Introducir"));
+            language.setSelectedItem(AppPreferences.language());
+            String storedTheme = AppPreferences.theme();
+            theme.setSelectedItem(AppPreferences.isEnglish()
+                    ? ("Claro".equals(storedTheme) ? "Light" : "Dark")
+                    : storedTheme);
+        } finally {
+            refreshingControls = false;
+        }
     }
 
     private JLabel valueLabel() {

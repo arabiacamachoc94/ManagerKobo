@@ -24,6 +24,7 @@ import java.awt.Font;
 import java.awt.GridLayout;
 import java.awt.Insets;
 import java.awt.Rectangle;
+import java.awt.Window;
 import java.awt.event.ComponentAdapter;
 import java.awt.event.ComponentEvent;
 import java.io.IOException;
@@ -45,6 +46,7 @@ import javax.swing.JScrollPane;
 import javax.swing.ScrollPaneConstants;
 import javax.swing.Scrollable;
 import javax.swing.SwingConstants;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 import javax.swing.filechooser.FileNameExtensionFilter;
@@ -90,7 +92,7 @@ public class DashboardPanel extends JPanel {
         header.add(titles, BorderLayout.CENTER);
 
         JLabel logo = new JLabel();
-        logo.setIcon(IconLoader.load("/icons/logo2-transparent.png", 58));
+        logo.setIcon(IconLoader.load("/icons/app-icon.png", 58));
         logo.setHorizontalAlignment(SwingConstants.CENTER);
         logo.setPreferredSize(new Dimension(64, 64));
         imageExportButton = new RoundedButton("Exportar imagen");
@@ -158,6 +160,7 @@ public class DashboardPanel extends JPanel {
 
             @Override
             protected void done() {
+                setExportInProgress(false, null, null);
                 try {
                     get();
                     JOptionPane.showMessageDialog(DashboardPanel.this,
@@ -170,8 +173,6 @@ public class DashboardPanel extends JPanel {
                             I18n.text("No se pudo exportar el resumen: ")
                                     + rootMessage(exception),
                             I18n.text("Error de exportación"), JOptionPane.ERROR_MESSAGE);
-                } finally {
-                    setExportInProgress(false, null, null);
                 }
             }
         }.execute();
@@ -240,6 +241,7 @@ public class DashboardPanel extends JPanel {
 
             @Override
             protected void done() {
+                setExportInProgress(false, null, null);
                 try {
                     String warning = get();
                     String message = warning == null
@@ -259,8 +261,6 @@ public class DashboardPanel extends JPanel {
                             I18n.text("No se pudo generar el informe: ")
                                     + I18n.text(rootMessage(exception)),
                             I18n.text("Error de exportación"), JOptionPane.ERROR_MESSAGE);
-                } finally {
-                    setExportInProgress(false, null, null);
                 }
             }
         }.execute();
@@ -302,6 +302,13 @@ public class DashboardPanel extends JPanel {
         setCursor(exporting
                 ? java.awt.Cursor.getPredefinedCursor(java.awt.Cursor.WAIT_CURSOR)
                 : java.awt.Cursor.getDefaultCursor());
+        Window applicationWindow = SwingUtilities.getWindowAncestor(this);
+        if (applicationWindow != null) {
+            applicationWindow.setEnabled(!exporting);
+            if (!exporting) {
+                applicationWindow.toFront();
+            }
+        }
     }
 
     private String rootMessage(Throwable throwable) {

@@ -1,7 +1,10 @@
 package com.arcac.managerkobo.service;
 
 import com.arcac.managerkobo.model.Book;
+import java.awt.Graphics2D;
 import java.awt.Image;
+import java.awt.RenderingHints;
+import java.awt.image.BaseMultiResolutionImage;
 import java.awt.image.BufferedImage;
 import java.io.ByteArrayInputStream;
 import java.io.File;
@@ -16,6 +19,8 @@ import java.security.MessageDigest;
 import java.time.Duration;
 import java.util.Comparator;
 import java.util.Locale;
+import java.util.Map;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Consumer;
 import java.util.stream.Stream;
 import javax.imageio.ImageIO;
@@ -29,6 +34,8 @@ import javax.swing.SwingWorker;
 public class BookCoverService {
     private static final Path COVER_DIRECTORY = Path.of("data", "covers");
     private static final int MAX_DOWNLOAD_BYTES = 8 * 1024 * 1024;
+    private static final Map<String, ImageIcon> SCALED_COVERS =
+            new ConcurrentHashMap<>();
 
     private final HttpClient client = HttpClient.newBuilder()
             .followRedirects(HttpClient.Redirect.NORMAL)
@@ -59,7 +66,12 @@ public class BookCoverService {
                 image = downloadByIsbn(book.getIsbn());
                 saveInCache(image, cachedCover);
             }
-            return image == null ? null : scale(image, maxWidth, maxHeight);
+            if (image == null) return null;
+            String scaledKey = cachedCover.getFileName()
+                    + "|" + maxWidth + "x" + maxHeight;
+            BufferedImage coverImage = image;
+            return SCALED_COVERS.computeIfAbsent(scaledKey,
+                    ignored -> scale(coverImage, maxWidth, maxHeight));
         } catch (Exception ignored) {
             return null;
         }
@@ -207,8 +219,45 @@ public class BookCoverService {
                 maxHeight / (double) source.getHeight());
         int width = Math.max(1, (int) Math.round(source.getWidth() * factor));
         int height = Math.max(1, (int) Math.round(source.getHeight() * factor));
-        Image scaled = source.getScaledInstance(width, height, Image.SCALE_SMOOTH);
-        return new ImageIcon(scaled);
+        BufferedImage normal = resize(source, width, height);
+        BufferedImage doubleSize = resize(source, width * 2, height * 2);
+        BufferedImage tripleSize = resize(source, width * 3, height * 3);
+        Image multiResolution = new BaseMultiResolutionImage(
+                normal, doubleSize, tripleSize);
+        return new ImageIcon(multiResolution);
+    }
+
+    /** Reduce por etapas y termina con un escalado bicúbico de alta calidad. */
+    private BufferedImage resize(
+            BufferedImage source, int targetWidth, int targetHeight) {
+        BufferedImage current = source;
+        while (current.getWidth() / 2 >= targetWidth
+                && current.getHeight() / 2 >= targetHeight) {
+            current = drawScaled(current,
+                    Math.max(targetWidth, current.getWidth() / 2),
+                    Math.max(targetHeight, current.getHeight() / 2));
+        }
+        if (current.getWidth() == targetWidth
+                && current.getHeight() == targetHeight) {
+            return current;
+        }
+        return drawScaled(current, targetWidth, targetHeight);
+    }
+
+    private BufferedImage drawScaled(
+            BufferedImage source, int width, int height) {
+        BufferedImage target = new BufferedImage(
+                width, height, BufferedImage.TYPE_INT_ARGB);
+        Graphics2D graphics = target.createGraphics();
+        graphics.setRenderingHint(RenderingHints.KEY_INTERPOLATION,
+                RenderingHints.VALUE_INTERPOLATION_BICUBIC);
+        graphics.setRenderingHint(RenderingHints.KEY_RENDERING,
+                RenderingHints.VALUE_RENDER_QUALITY);
+        graphics.setRenderingHint(RenderingHints.KEY_ANTIALIASING,
+                RenderingHints.VALUE_ANTIALIAS_ON);
+        graphics.drawImage(source, 0, 0, width, height, null);
+        graphics.dispose();
+        return target;
     }
 
     private String cacheName(Book book) throws Exception {

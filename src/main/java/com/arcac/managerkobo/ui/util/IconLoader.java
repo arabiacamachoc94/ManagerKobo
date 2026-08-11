@@ -1,5 +1,6 @@
 package com.arcac.managerkobo.ui.util;
 
+import com.formdev.flatlaf.extras.FlatSVGIcon;
 import java.awt.Color;
 import java.awt.Graphics2D;
 import java.awt.Image;
@@ -26,6 +27,12 @@ public final class IconLoader {
         ImageIcon cached = CACHE.get(key);
         if (cached != null) return cached;
 
+        if (isSvg(resourcePath)) {
+            ImageIcon icon = createSvgIcon(resourcePath, size, null);
+            CACHE.put(key, icon);
+            return icon;
+        }
+
         try {
             BufferedImage source = readImage(resourcePath);
             if (source == null) return null;
@@ -41,6 +48,12 @@ public final class IconLoader {
         String key = resourcePath + "|" + size + "|" + color.getRGB();
         ImageIcon cached = CACHE.get(key);
         if (cached != null) return cached;
+
+        if (isSvg(resourcePath)) {
+            ImageIcon icon = createSvgIcon(resourcePath, size, color);
+            CACHE.put(key, icon);
+            return icon;
+        }
 
         try {
             BufferedImage source = readImage(resourcePath);
@@ -60,6 +73,23 @@ public final class IconLoader {
         } catch (IOException exception) {
             return null;
         }
+    }
+
+    private static boolean isSvg(String resourcePath) {
+        return resourcePath != null
+                && resourcePath.toLowerCase(java.util.Locale.ROOT).endsWith(".svg");
+    }
+
+    private static ImageIcon createSvgIcon(
+            String resourcePath, int size, Color color) {
+        String classpathName = resourcePath.startsWith("/")
+                ? resourcePath.substring(1) : resourcePath;
+        FlatSVGIcon icon = new FlatSVGIcon(classpathName, size, size,
+                IconLoader.class.getClassLoader());
+        if (color != null) {
+            icon.setColorFilter(new FlatSVGIcon.ColorFilter(ignored -> color));
+        }
+        return icon;
     }
 
     /** Conserva variantes nítidas para escalas de pantalla 100%, 200% y 300%. */

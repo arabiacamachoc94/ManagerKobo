@@ -57,8 +57,6 @@ public class SidebarPanel extends JPanel {
 
     private JLabel createBrand() {
         JLabel brand = new JLabel("Kobo Manager");
-        brand.setIcon(IconLoader.load("/icons/logo2-transparent.png", 30));
-        brand.setIconTextGap(10);
         brand.setForeground(AppTheme.TEXT);
         brand.setFont(AppTheme.font(Font.BOLD, 20));
         brand.setBorder(new EmptyBorder(28, 23, 25, 15));
@@ -70,11 +68,11 @@ public class SidebarPanel extends JPanel {
         menu.setOpaque(false);
         menu.setLayout(new BoxLayout(menu, BoxLayout.Y_AXIS));
         boolean english = AppPreferences.isEnglish();
-        addButton(menu, "/icons/dashboard.png", english ? "Overview" : "Resumen", DASHBOARD);
-        addButton(menu, "/icons/library.png", english ? "Library" : "Biblioteca", LIBRARY);
-        addButton(menu, "/icons/lapiz.png", english ? "Highlights" : "Subrayados", HIGHLIGHTS);
-        addButton(menu, "/icons/palabras.png", english ? "Words" : "Palabras", WORDS);
-        addButton(menu, "/icons/settings.png", english ? "Settings" : "Ajustes", SETTINGS);
+        addButton(menu, "/icons/dashboard.svg", english ? "Overview" : "Resumen", DASHBOARD);
+        addButton(menu, "/icons/library.svg", english ? "Library" : "Biblioteca", LIBRARY);
+        addButton(menu, "/icons/lapiz.svg", english ? "Highlights" : "Subrayados", HIGHLIGHTS);
+        addButton(menu, "/icons/palabras.svg", english ? "Words" : "Palabras", WORDS);
+        addButton(menu, "/icons/settings.svg", english ? "Settings" : "Ajustes", SETTINGS);
         return menu;
     }
 
@@ -114,6 +112,15 @@ public class SidebarPanel extends JPanel {
         }
     }
 
+    /** Mantiene resaltada la opción correspondiente al cambiar de página por código. */
+    public void selectPage(String page) {
+        boolean menuPage = buttons.stream()
+                .anyMatch(button -> page.equals(button.getName()));
+        if (menuPage) {
+            select(page);
+        }
+    }
+
     private void configureStatus() {
         connectionStatus.setFont(AppTheme.font(Font.PLAIN, 13));
         connectionStatus.setBorder(new EmptyBorder(0, 9, 0, 0));
@@ -121,7 +128,7 @@ public class SidebarPanel extends JPanel {
 
     private void configureSyncButton(Runnable syncAction) {
         syncButton.setIcon(IconLoader.loadTinted(
-                "/icons/actualizar.png", 19, AppTheme.MUTED_TEXT));
+                "/icons/actualizar.svg", 19, AppTheme.MUTED_TEXT));
         syncButton.setToolTipText(AppPreferences.isEnglish()
                 ? "Sync Kobo" : "Sincronizar Kobo");
         syncButton.setContentAreaFilled(false);
@@ -150,18 +157,28 @@ public class SidebarPanel extends JPanel {
         synchronizationStatus.setFont(AppTheme.font(Font.PLAIN, 11));
         synchronizationStatus.setForeground(AppTheme.MUTED_TEXT);
         synchronizationStatus.setAlignmentX(LEFT_ALIGNMENT);
+        synchronizationStatus.setMaximumSize(
+                new Dimension(Integer.MAX_VALUE, 18));
         footer.add(synchronizationStatus);
         return footer;
     }
 
     public void setLastSynchronization(LocalDateTime date) {
-        synchronizationStatus.setText(date == null
-                ? (AppPreferences.isEnglish()
-                        ? "Last sync: unavailable"
-                        : "Última sincronización: no disponible")
-                : (AppPreferences.isEnglish() ? "Last sync: " : "Última: ")
-                        + date.format(DateTimeFormatter.ofPattern(
-                                "dd/MM/yyyy · HH:mm")));
+        boolean english = AppPreferences.isEnglish();
+        if (date == null) {
+            synchronizationStatus.setText(english
+                    ? "Last: unavailable" : "Última: no disponible");
+            synchronizationStatus.setToolTipText(english
+                    ? "Last synchronization unavailable"
+                    : "Última sincronización no disponible");
+            return;
+        }
+
+        synchronizationStatus.setText((english ? "Last: " : "Última: ")
+                + date.format(DateTimeFormatter.ofPattern("dd/MM/yy · HH:mm")));
+        synchronizationStatus.setToolTipText(
+                (english ? "Last synchronization: " : "Última sincronización: ")
+                + date.format(DateTimeFormatter.ofPattern("dd/MM/yyyy · HH:mm")));
     }
 
     public void setSyncing(boolean syncing) {

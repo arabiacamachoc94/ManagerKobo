@@ -64,7 +64,7 @@ public class BookCard extends RoundedPanel {
         cover.setHorizontalAlignment(SwingConstants.CENTER);
         cover.setVerticalAlignment(SwingConstants.CENTER);
         cover.setIcon(IconLoader.loadTinted(
-                "/icons/libro.png", 46, AppTheme.PURPLE));
+                "/icons/libro.svg", 46, AppTheme.PURPLE));
         holder.add(cover, BorderLayout.CENTER);
 
         COVER_SERVICE.loadAsync(book, coverWidth, coverHeight, image -> {

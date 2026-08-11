@@ -24,6 +24,7 @@ import javax.swing.JPanel;
 import javax.swing.JProgressBar;
 import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
+import javax.swing.SwingUtilities;
 import javax.swing.SwingWorker;
 import javax.swing.border.EmptyBorder;
 
@@ -35,7 +36,6 @@ public class AiSummaryDialog extends JDialog {
     private final HighlightAiService aiService = new HighlightAiService();
     private final JTextArea response = new JTextArea();
     private final JLabel status = new JLabel();
-    private final JButton generate = new RoundedButton("");
     private final JProgressBar progress = new JProgressBar();
 
     public AiSummaryDialog(Window owner, List<Bookmark> highlights,
@@ -44,10 +44,12 @@ public class AiSummaryDialog extends JDialog {
         this.highlights = List.copyOf(highlights);
         this.operation = operation;
         this.question = question;
-        generate.setText(I18n.text(actionText(operation)));
         configureWindow();
         setContentPane(createContent());
         I18n.translateTree(getContentPane());
+        if (aiService.isConfigured()) {
+            SwingUtilities.invokeLater(this::generateResponse);
+        }
     }
 
     private void configureWindow() {
@@ -108,18 +110,14 @@ public class AiSummaryDialog extends JDialog {
         copy.addActionListener(event -> copyResponse());
         JButton close = button("Cerrar", AppTheme.PANEL_ALT);
         close.addActionListener(event -> dispose());
-        styleButton(generate, AppTheme.PURPLE);
-        generate.addActionListener(event -> generateResponse());
         actions.add(copy);
         actions.add(close);
-        actions.add(generate);
         content.add(actions, BorderLayout.SOUTH);
         return content;
     }
 
     private void updateConfigurationState() {
         boolean configured = aiService.isConfigured();
-        generate.setEnabled(configured);
         if (!configured) {
             status.setText(I18n.text("Configura tu clave API para comenzar."));
         } else if (GeminiApiKeyStore.comesFromEnvironment()) {
@@ -130,8 +128,6 @@ public class AiSummaryDialog extends JDialog {
     }
 
     private void generateResponse() {
-        generate.setEnabled(false);
-        generate.setText(I18n.text("Generando..."));
         status.setText(I18n.text("Consultando a Gemini..."));
         progress.setVisible(true);
         setCursor(java.awt.Cursor.getPredefinedCursor(
@@ -156,8 +152,6 @@ public class AiSummaryDialog extends JDialog {
                 } finally {
                     progress.setVisible(false);
                     setCursor(java.awt.Cursor.getDefaultCursor());
-                    generate.setText(I18n.text(actionText(operation)));
-                    generate.setEnabled(aiService.isConfigured());
                 }
             }
         }.execute();
@@ -168,14 +162,6 @@ public class AiSummaryDialog extends JDialog {
             case SUMMARY -> "Resumir subrayados";
             case KEY_IDEAS -> "Extraer ideas clave";
             case QUESTION -> "Preguntar sobre los subrayados";
-        };
-    }
-
-    private static String actionText(Operation operation) {
-        return switch (operation) {
-            case SUMMARY -> "Generar resumen";
-            case KEY_IDEAS -> "Extraer ideas";
-            case QUESTION -> "Responder";
         };
     }
 
