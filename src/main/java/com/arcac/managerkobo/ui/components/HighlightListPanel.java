@@ -146,8 +146,6 @@ public class HighlightListPanel extends JPanel {
     }
 
     private void configureToolbarLayout(int width) {
-        // Con varias acciones, una sola fila necesita bastante anchura.
-        // Cambiamos antes al diseño vertical para no comprimir ni desbordar la lista.
         boolean compact = width < 900;
         Object previousMode = toolbar.getClientProperty("compactLayout");
         if (previousMode instanceof Boolean && (Boolean) previousMode == compact) {
@@ -688,7 +686,6 @@ public class HighlightListPanel extends JPanel {
         return value == null ? "" : value.strip().toLowerCase(Locale.ROOT);
     }
 
-    /** Evita que el ancho preferido de los renderers ensanche la lista. */
     private static final class ViewportWidthList<E> extends JList<E> {
         private ViewportWidthList(DefaultListModel<E> model) {
             super(model);

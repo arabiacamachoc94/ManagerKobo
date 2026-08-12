@@ -103,7 +103,6 @@ public class GroupedHighlightCellRenderer
                 null, highlight.bookmark(), index, highlight.marked(), hasFocus);
     }
 
-    /** Ancho real ocupado por el margen izquierdo y el checkbox del grupo. */
     public int checkboxHitWidth() {
         return groupPanel.getInsets().left
                 + groupCheck.getPreferredSize().width;

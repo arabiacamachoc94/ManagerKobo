@@ -64,7 +64,6 @@ public class BookWordCountService {
                 if (Files.isRegularFile(candidate)) return candidate;
             }
         } catch (Exception ignored) {
-            // El identificador no corresponde a un archivo accesible.
         }
         return null;
     }
@@ -116,7 +115,6 @@ public class BookWordCountService {
                 properties.store(output, "Kobo Manager - word counts");
             }
         } catch (Exception ignored) {
-            // El ritmo simplemente quedará sin datos si no se puede guardar.
         }
     }
 

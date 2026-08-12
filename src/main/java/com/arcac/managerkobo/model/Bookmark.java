@@ -14,7 +14,6 @@ public class Bookmark {
     private int color;
     private String contextString;
 
-    // Datos obtenidos al relacionar Bookmark con content.
     private String bookTitle;
     private String bookAuthor;
     private String chapterTitle;

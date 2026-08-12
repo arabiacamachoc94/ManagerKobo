@@ -9,14 +9,12 @@ import java.sql.SQLException;
  */
 public class DataBaseConnection {
 
-    // 1. La variable estática para el Singleton y el objeto Connection
     private static DataBaseConnection instance;
     private Connection connection;
 
     private DataBaseConnection() {
     }
 
-    // Patron Singleton: devuelve la única instancia de la clase
     public static DataBaseConnection getInstance() {
         if (instance == null) {
             instance = new DataBaseConnection();

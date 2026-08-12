@@ -29,6 +29,48 @@ Kobo Manager detecta el dispositivo conectado, crea una copia local de `KoboRead
 
 Algunas métricas son estimaciones y dependen de la información que cada modelo y firmware de Kobo guarde en SQLite.
 
+## Capturas
+
+### Resumen
+
+Vista principal con las lecturas en curso y las métricas generales de la biblioteca.
+
+![Resumen principal de Kobo Manager](docs/images/resumen1.png)
+
+Gráficas para explorar el estado, el progreso y los patrones personales de lectura.
+
+![Estadísticas de lectura de Kobo Manager](docs/images/resumen2.png)
+
+### Biblioteca
+
+Biblioteca visual con portadas, progreso, búsqueda y filtros combinables.
+
+![Biblioteca de Kobo Manager](docs/images/biblioteca.png)
+
+### Detalle del libro
+
+Información y estadísticas de cada libro junto con sus subrayados asociados.
+
+![Detalle de un libro en Kobo Manager](docs/images/detallelibro.png)
+
+### Subrayados
+
+Subrayados agrupados por libro, con selección múltiple, exportación y acciones opcionales de IA.
+
+![Gestión de subrayados en Kobo Manager](docs/images/subrayados.png)
+
+### Palabras
+
+Consulta y exportación de las palabras buscadas en el diccionario del Kobo.
+
+![Palabras consultadas en Kobo Manager](docs/images/palabras.png)
+
+### Informe
+
+Informe PDF con las estadísticas de lectura y un análisis opcional generado con Gemini.
+
+![Informe PDF generado por Kobo Manager](docs/images/informe.png)
+
 ## Uso básico
 
 1. Conecta el Kobo por USB y permite el acceso desde el dispositivo.
